@@ -1,0 +1,25 @@
+# PocketBase runtime data (ห้าม commit — มีข้อมูลจริง/ไฟล์อัปโหลด)
+pb_data/
+pb_migrations/
+pocketbase
+
+# secrets / env (ห้ามหลุดแบบ note.md เดิม)
+*.env
+.env*
+# ยกเว้นต้นแบบที่ไม่มีค่าจริง — ต้องอยู่หลัง .env* ไม่งั้นโดน ignore ไปด้วย
+!.env.example
+*.pem
+*_key
+id_*
+# ไฟล์รหัสจริง — commit ได้แค่ note.example.md (template ไม่มีรหัส)
+note.md
+note.local.md
+secrets.md
+credentials.md
+
+# OS / editor
+.DS_Store
+*.log
+
+# ตั้งค่า Claude Code เฉพาะเครื่องนี้ (มี path/IP ของเครื่อง ไม่เกี่ยวกับคนอื่นในทีม)
+.claude/settings.local.json

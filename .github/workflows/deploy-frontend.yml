@@ -1,0 +1,47 @@
+# Auto-deploy frontend ขึ้น Oracle VM's pb_public/ เมื่อ push ไฟล์หน้าเว็บ
+# PocketBase binary + pb_data (ข้อมูล) อยู่บน VM เสมอ — workflow นี้แตะแค่ frontend
+#
+# ต้องตั้ง Secrets ใน repo (Settings → Secrets and variables → Actions):
+#   VM_HOST     = Public IP ของ Oracle VM
+#   VM_USER     = ubuntu
+#   VM_SSH_KEY  = เนื้อหา private key (ตัวเดียวกับที่ใช้ SSH เข้า VM)
+name: Deploy frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'css/**'
+      - 'js/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch: {}   # กดรันเองจากหน้า Actions ได้
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VM_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+        env:
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_HOST: ${{ secrets.VM_HOST }}
+
+      - name: Rsync frontend → VM แล้วย้ายเข้า pb_public
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/id_deploy" \
+            index.html css js \
+            "$VM_USER@$VM_HOST:/tmp/site/"
+          ssh -i ~/.ssh/id_deploy "$VM_USER@$VM_HOST" \
+            'sudo rsync -a --delete /tmp/site/ /opt/pocketbase/pb_public/ \
+             && sudo chown -R pocketbase:pocketbase /opt/pocketbase/pb_public'
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}

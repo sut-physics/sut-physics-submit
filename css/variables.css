@@ -1,0 +1,80 @@
+/* Design tokens — ยกจาก mockup ที่อนุมัติแล้ว (indigo accent + สถานะ amber/teal/green/red)
+   รองรับทั้ง light/dark ผ่าน prefers-color-scheme และ [data-theme] override */
+:root {
+    --paper: #f2f3f7;
+    --surface: #ffffff;
+    --surface-2: #f8f9fc;
+    --ink: #1b2030;
+    --ink-muted: #5b6178;
+    --ink-faint: #8b90a6;
+    --line: #dfe1ea;
+    --line-strong: #c7cadb;
+    --accent: #33478c;
+    --accent-ink: #ffffff;
+    --accent-soft: #eef0fa;
+    --accent-soft-line: #ccd2ec;
+
+    --st-queue: #a2661f;    --st-queue-bg: #fbeedd;    --st-queue-line: #eccd9c;
+    --st-review: #2f8f8a;   --st-review-bg: #e3f5f3;   --st-review-line: #b7e2dd;
+    --st-complete: #1f8a5f; --st-complete-bg: #e2f6ec; --st-complete-line: #b7e6cc;
+    --st-returned: #b23b3b; --st-returned-bg: #fbe8e6; --st-returned-line: #f0bcb6;
+
+    --danger: #b23b3b;
+    --shadow-1: 0 1px 2px rgba(27, 32, 48, 0.06);
+    --shadow-2: 0 8px 24px rgba(27, 32, 48, 0.10);
+    --radius: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --paper: #10131b;
+        --surface: #171b26;
+        --surface-2: #1d2230;
+        --ink: #e8e9f3;
+        --ink-muted: #a3a8c0;
+        --ink-faint: #737a97;
+        --line: #2a3042;
+        --line-strong: #3a4159;
+        --accent: #8b9be0;
+        --accent-ink: #10131b;
+        --accent-soft: #222a45;
+        --accent-soft-line: #3a437a;
+
+        --st-queue: #e0a750;    --st-queue-bg: #33291a;    --st-queue-line: #5c4826;
+        --st-review: #5fc9c1;   --st-review-bg: #16302e;   --st-review-line: #2b524d;
+        --st-complete: #5fd39c; --st-complete-bg: #123626; --st-complete-line: #235940;
+        --st-returned: #e2726a; --st-returned-bg: #3a1f1e; --st-returned-line: #613330;
+
+        --danger: #e2726a;
+        --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+        --shadow-2: 0 12px 32px rgba(0, 0, 0, 0.45);
+    }
+}
+
+:root[data-theme="dark"] {
+    --paper: #10131b; --surface: #171b26; --surface-2: #1d2230;
+    --ink: #e8e9f3; --ink-muted: #a3a8c0; --ink-faint: #737a97;
+    --line: #2a3042; --line-strong: #3a4159;
+    --accent: #8b9be0; --accent-ink: #10131b; --accent-soft: #222a45; --accent-soft-line: #3a437a;
+    --st-queue: #e0a750; --st-queue-bg: #33291a; --st-queue-line: #5c4826;
+    --st-review: #5fc9c1; --st-review-bg: #16302e; --st-review-line: #2b524d;
+    --st-complete: #5fd39c; --st-complete-bg: #123626; --st-complete-line: #235940;
+    --st-returned: #e2726a; --st-returned-bg: #3a1f1e; --st-returned-line: #613330;
+    --danger: #e2726a;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-2: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="light"] {
+    --paper: #f2f3f7; --surface: #ffffff; --surface-2: #f8f9fc;
+    --ink: #1b2030; --ink-muted: #5b6178; --ink-faint: #8b90a6;
+    --line: #dfe1ea; --line-strong: #c7cadb;
+    --accent: #33478c; --accent-ink: #ffffff; --accent-soft: #eef0fa; --accent-soft-line: #ccd2ec;
+    --st-queue: #a2661f; --st-queue-bg: #fbeedd; --st-queue-line: #eccd9c;
+    --st-review: #2f8f8a; --st-review-bg: #e3f5f3; --st-review-line: #b7e2dd;
+    --st-complete: #1f8a5f; --st-complete-bg: #e2f6ec; --st-complete-line: #b7e6cc;
+    --st-returned: #b23b3b; --st-returned-bg: #fbe8e6; --st-returned-line: #f0bcb6;
+    --danger: #b23b3b;
+    --shadow-1: 0 1px 2px rgba(27, 32, 48, 0.06);
+    --shadow-2: 0 8px 24px rgba(27, 32, 48, 0.10);
+}
