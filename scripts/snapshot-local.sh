@@ -19,9 +19,11 @@
 #   2) มิเรอร์ไฟล์แนบแบบเข้ารหัสทีละไฟล์ไว้ที่ storage-enc/ (incremental — ไฟล์เดิมไม่ทำซ้ำ)
 #   3) ลบ snapshot ฐานข้อมูลเก่าเกิน retention
 #
-# ชื่อไฟล์ในมิเรอร์เป็น sha256 ของ path เดิม ไม่ใช่ชื่อไฟล์จริง
-#   → NAS โดนแฮกก็ไม่รู้ว่ามีเอกสารชื่ออะไรบ้าง (ชื่อไฟล์จริงบอกหัวข้องานได้)
-#   → hash เดิมทุกครั้งสำหรับ path เดิม rsync จึงยัง incremental ได้ตามปกติ
+# โครงในมิเรอร์:  storage-enc/<ชื่อผู้ส่ง>/<sha256 ของ path>.age
+#   - **แยกโฟลเดอร์ตามคนส่ง** เพื่อให้หาของใครก็ได้ง่ายตอนเปิดดูบน NAS
+#   - ชื่อ*ไฟล์*ยังเป็น hash ไม่ใช่ชื่อจริง → NAS โดนแฮกก็ไม่รู้ว่ามีเอกสารชื่ออะไร
+#     (ชื่อไฟล์จริงบอกหัวข้องานได้ ส่วนชื่อโฟลเดอร์บอกแค่ว่า "มีคนชื่อนี้ส่งงาน" ซึ่งรับได้)
+#   - hash เดิมทุกครั้งสำหรับ path เดิม rsync จึงยัง incremental ได้ตามปกติ
 #   path จริงถูก tar ไว้ข้างในก่อนเข้ารหัส → ตอนกู้ไม่ต้องมีตารางแปลงชื่อ
 #
 # **สำคัญ**: ไฟล์ที่มิเรอร์ไว้แล้วห้ามเข้ารหัสซ้ำ — age สุ่มค่าใหม่ทุกครั้ง ผลลัพธ์จะไม่เหมือนเดิม
@@ -88,17 +90,49 @@ STORAGE="$DATA_DIR/storage"
 added=0
 if [ -d "$STORAGE" ]; then
     log "มิเรอร์ไฟล์แนบแบบเข้ารหัส..."
+
+    # แผนที่ recordId → ชื่อผู้ส่ง อ่านจากสำเนา DB ที่เพิ่งทำ (ไม่แตะตัวจริงที่กำลังใช้งาน)
+    # path ของไฟล์คือ <collectionId>/<recordId>/<ไฟล์> → รู้ recordId ก็รู้ว่าใครส่ง
+    OWNER_MAP="$TMP/owners.txt"
+    python3 - "$TMP/db/data.db" > "$OWNER_MAP" <<'PY'
+import sqlite3, sys, re
+con = sqlite3.connect('file:%s?mode=ro' % sys.argv[1], uri=True)
+rows = []
+for q in ("SELECT s.id, u.username FROM submissions s JOIN users u ON u.id = s.sender",
+          "SELECT r.id, u.username FROM submission_replies r JOIN users u ON u.id = r.author"):
+    try:
+        rows += con.execute(q).fetchall()
+    except sqlite3.Error:
+        pass
+con.close()
+for rid, name in rows:
+    # กันชื่อแปลกๆ ทำโฟลเดอร์พัง (เว้นวรรค / ขึ้นบน / อักขระพิเศษ)
+    safe = re.sub(r'[^A-Za-z0-9ก-๙_.-]', '_', (name or 'unknown'))[:40] or 'unknown'
+    print('%s\t%s' % (rid, safe))
+PY
+
     while IFS= read -r -d '' f; do
         rel="${f#$STORAGE/}"
+        rec="$(printf '%s' "$rel" | cut -d/ -f2)"
+        owner="$(awk -F'\t' -v r="$rec" '$1==r{print $2; exit}' "$OWNER_MAP")"
+        [ -z "$owner" ] && owner="_ไม่ทราบเจ้าของ"
+
         h="$(printf '%s' "$rel" | sha256sum | cut -d' ' -f1)"
-        out="$ENC_DIR/$h.age"
-        [ -f "$out" ] && continue     # มีแล้ว = ห้ามทำซ้ำ (ดูหมายเหตุหัวไฟล์)
+        # หาทั้งมิเรอร์ ไม่ใช่เฉพาะโฟลเดอร์นี้ — คนเปลี่ยนชื่อผู้ใช้แล้วจะได้ไม่เข้ารหัสซ้ำเป็นไฟล์ใหม่
+        [ -n "$(find "$ENC_DIR" -name "$h.age" -print -quit 2>/dev/null)" ] && continue
+
+        mkdir -p "$ENC_DIR/$owner"
+        out="$ENC_DIR/$owner/$h.age"
         tar -czf - -C "$STORAGE" "$rel" | age -r "$RECIPIENT" -o "$out.part"
         mv "$out.part" "$out"
         chown "$PULL_USER" "$out" 2>/dev/null || true
         chmod 640 "$out"
         added=$((added + 1))
     done < <(find "$STORAGE" -type f -print0)
+
+    # โฟลเดอร์ต้องให้ NAS อ่านได้ด้วย
+    find "$ENC_DIR" -type d -exec chown "$PULL_USER" {} \; 2>/dev/null || true
+    find "$ENC_DIR" -type d -exec chmod 750 {} \; 2>/dev/null || true
 fi
 chown "$PULL_USER" "$ENC_DIR" 2>/dev/null || true
 chmod 750 "$ENC_DIR"

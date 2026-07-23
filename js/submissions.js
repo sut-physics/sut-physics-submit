@@ -159,11 +159,32 @@ function escapeHtml(s) {
         .replace(/"/g, '&quot;');
 }
 
-function fileChipHtml(url, rawName) {
+// ไฟล์แนบเป็น protected — โหลดตรงๆ ด้วย URL ไม่ได้แล้ว ต้องแนบ file token ที่มีอายุสั้น
+// จึงเรนเดอร์เป็นปุ่ม แล้วไปขอ token ตอนกด (ขอตอนเรนเดอร์ไม่ได้ เพราะถ้าเปิดหน้าค้างไว้นาน token จะหมดอายุ)
+function fileChipHtml(rec, rawName) {
     var name = cleanFileName(rawName);
-    return '<a class="file-chip" href="' + url + '" target="_blank" rel="noopener">' +
+    return '<button class="file-chip" type="button" data-fc="' + rec.collectionId + '|' + rec.id + '|' + escapeHtml(rawName) + '">' +
         '<span class="fi"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></span>' +
-        '<span><span class="fname">' + escapeHtml(name) + '</span><br><span class="fsize">เปิดไฟล์</span></span></a>';
+        '<span><span class="fname">' + escapeHtml(name) + '</span><br><span class="fsize">เปิดไฟล์</span></span></button>';
+}
+
+// ผูกปุ่มเปิดไฟล์ทั้งหมดในกล่องที่ระบุ
+function wireFileChips(root) {
+    Array.prototype.forEach.call(root.querySelectorAll('[data-fc]'), function (btn) {
+        btn.addEventListener('click', function () {
+            var parts = btn.getAttribute('data-fc').split('|');
+            // ต้องเปิดแท็บ "ตอนกด" เลย ไม่งั้นเปิดหลัง await จะโดน popup blocker
+            var w = window.open('', '_blank');
+            pb.files.getToken().then(function (token) {
+                var url = pb.files.getURL({ collectionId: parts[0], id: parts[1] }, parts[2], { token: token });
+                if (w) { w.location.href = url; } else { window.location.href = url; }
+            }).catch(function (err) {
+                if (w) w.close();
+                console.error('ขอสิทธิ์เปิดไฟล์ไม่สำเร็จ:', err);
+                alert('เปิดไฟล์ไม่สำเร็จ — ลองใหม่อีกครั้ง');
+            });
+        });
+    });
 }
 
 // ---------- ตัวช่วยกรอง (ใช้ร่วมกันระหว่าง rail กับ rows) ----------
@@ -327,7 +348,7 @@ function openDetail(id) {
     }
     if (d.file) {
         topParts += '<div><div class="field-label">ไฟล์ที่แนบมา</div>' +
-                    fileChipHtml(pb.files.getURL(d, d.file), d.file) + '</div>';
+                    fileChipHtml(d, d.file) + '</div>';
     }
     if (!topParts) topParts = '<div class="doc-empty">ไม่มีรายละเอียด · ไม่มีไฟล์แนบ</div>';
 
@@ -420,6 +441,7 @@ function openDetail(id) {
 
     // wire actions
     document.getElementById('backBtn').addEventListener('click', closeDetail);
+    wireFileChips(document.getElementById('detailView'));
     if (isRecipient) {
         Array.prototype.forEach.call(document.querySelectorAll('#detailView [data-set]'), function (btn) {
             btn.addEventListener('click', function () { changeStatus(d.id, btn.getAttribute('data-set')); });
@@ -490,7 +512,7 @@ function loadAndRenderThread(submissionId) {
         }
         threadEl.innerHTML = replies.map(function (t) {
             var name = displayName(t.expand && t.expand.author);
-            var fileHtml = t.file ? fileChipHtml(pb.files.getURL(t, t.file), t.file) : '';
+            var fileHtml = t.file ? fileChipHtml(t, t.file) : '';
             return '<div class="thread-item">' +
                 '<span class="avatar">' + escapeHtml(initials(name)) + '</span>' +
                 '<div class="thread-bubble">' +
@@ -499,6 +521,7 @@ function loadAndRenderThread(submissionId) {
                     fileHtml +
                 '</div></div>';
         }).join('');
+        wireFileChips(threadEl);   // ไฟล์ในกระทู้โหลดทีหลัง ต้องผูกปุ่มเปิดไฟล์ใหม่ทุกครั้ง
     }).catch(function (err) { if (err && err.isAbort) return; console.error('โหลดการตอบกลับไม่สำเร็จ:', err); });
 }
 

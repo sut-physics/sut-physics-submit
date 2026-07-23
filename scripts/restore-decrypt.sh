@@ -10,8 +10,8 @@
 #   ./restore-decrypt.sh ~/from-nas ~/restored ~/submit-backup-key.txt
 #
 # โฟลเดอร์ backup ต้องมีหน้าตาแบบที่ NAS ดึงมา:
-#   <backup>/db/submit-db-*.tar.gz.age   (เลือกไฟล์ล่าสุดให้อัตโนมัติ)
-#   <backup>/storage/<sha256>.age        (ไฟล์แนบ ชื่อถูก hash ไว้)
+#   <backup>/db/submit-db-*.tar.gz.age        (เลือกไฟล์ล่าสุดให้อัตโนมัติ)
+#   <backup>/storage/<ชื่อผู้ส่ง>/<sha256>.age  (ไฟล์แนบ แยกโฟลเดอร์ตามคนส่ง ชื่อไฟล์เป็น hash)
 #
 # ผลลัพธ์:
 #   <out>/pb_data/data.db  auxiliary.db
@@ -38,13 +38,13 @@ echo "ฐานข้อมูล: $(basename "$DB_ARCHIVE")"
 age -d -i "$KEY" "$DB_ARCHIVE" | tar -xzf - -C "$OUT/pb_data"
 
 # ---------- ไฟล์แนบ: ถอดทีละไฟล์ แล้ว untar คืน path เดิม ----------
+# -r เพราะไฟล์อยู่ในโฟลเดอร์ย่อยตามชื่อผู้ส่ง (รองรับ backup เก่าที่วางแบนๆ ด้วย)
 n=0
 if [ -d "$SRC/storage" ]; then
-    for f in "$SRC"/storage/*.age; do
-        [ -e "$f" ] || break
+    while IFS= read -r -d '' f; do
         age -d -i "$KEY" "$f" | tar -xzf - -C "$OUT/pb_data/storage"
         n=$((n + 1))
-    done
+    done < <(find "$SRC/storage" -name '*.age' -type f -print0)
 fi
 echo "ไฟล์แนบ: ถอดแล้ว $n ไฟล์"
 
