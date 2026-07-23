@@ -65,7 +65,13 @@ function memberRowHtml(u) {
     if (isSelf)                  badges += '<span class="mb-tag self">คุณ</span>';
 
     var btns = '';
-    if (!isSelf) {
+    if (isSelf) {
+        // ตัวเองแก้สิทธิ์/สถานะตัวเองไม่ได้ (server ห้าม) — ไม่ต้องมีปุ่มให้กดแล้วเจอ error
+        btns = '';
+    } else if (u.role === 'admin') {
+        // บัญชีผู้ดูแลด้วยกันแตะไม่ได้ ต้องผ่าน superuser — บอกไปเลยแทนที่จะโชว์ปุ่มที่กดแล้ว 403
+        btns = '<span class="mb-note">แก้ได้ที่ Admin UI (superuser) เท่านั้น</span>';
+    } else {
         if (u.status === 'pending') {
             btns += '<button class="btn btn-primary ar-btn" data-act="approve" data-id="' + u.id + '">อนุมัติ</button>';
         }
@@ -74,11 +80,7 @@ function memberRowHtml(u) {
         } else if (u.status === 'approved') {
             btns += '<button class="btn ar-btn" data-act="disable" data-id="' + u.id + '">ปิดใช้งาน</button>';
         }
-        if (u.role === 'admin') {
-            btns += '<button class="btn ar-btn" data-act="demote" data-id="' + u.id + '">ถอดผู้ดูแล</button>';
-        } else {
-            btns += '<button class="btn ar-btn" data-act="promote" data-id="' + u.id + '">ตั้งเป็นผู้ดูแล</button>';
-        }
+        btns += '<button class="btn ar-btn" data-act="promote" data-id="' + u.id + '">ตั้งเป็นผู้ดูแล</button>';
     }
 
     return '<div class="approve-row" data-id="' + u.id + '">' +
@@ -175,16 +177,15 @@ function renderPwRequestChips(resets) {
     });
 }
 
-// อนุมัติ / เปิด-ปิดใช้งาน / ตั้ง-ถอดผู้ดูแล — ทุกอย่างบังคับซ้ำที่ server ด้วย pb_hooks
+// อนุมัติ / เปิด-ปิดใช้งาน / ตั้งเป็นผู้ดูแล — ทุกอย่างบังคับซ้ำที่ server ด้วย pb_hooks
+// ไม่มี demote: ถอดสิทธิ์ผู้ดูแลทำได้เฉพาะ superuser ที่ Admin UI (กัน admin ล็อกกันเองออก)
 var MEMBER_ACTIONS = {
     approve: { patch: { status: 'approved' } },
     enable:  { patch: { status: 'approved' } },
     disable: { patch: { status: 'disabled' },
                confirm: 'ปิดใช้งานบัญชีนี้?\n\nเจ้าตัวจะถูกเตะออกจากระบบทันทีและ login ไม่ได้อีก\nงานเก่ายังอยู่ครบ เปิดใช้งานกลับได้ทุกเมื่อ' },
     promote: { patch: { role: 'admin' },
-               confirm: 'ตั้งให้เป็นผู้ดูแล?\n\nจะรับงานได้ อนุมัติสมาชิก ตั้งรหัสให้คนอื่น และตั้งผู้ดูแลคนอื่นต่อได้' },
-    demote:  { patch: { role: 'user' },
-               confirm: 'ถอดสิทธิ์ผู้ดูแล?\n\nงานที่ค้างอยู่กับเขาจะยังอยู่ แต่เขาจะไม่ได้อยู่ในรายชื่อผู้รับอีก' }
+               confirm: 'ตั้งให้เป็นผู้ดูแล?\n\nจะรับงานได้ อนุมัติสมาชิก และตั้งรหัสให้คนอื่นได้\n\nหมายเหตุ: ถอดสิทธิ์คืนต้องทำที่ Admin UI (superuser) เท่านั้น' }
 };
 
 function memberAction(act, id, btn) {

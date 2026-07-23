@@ -38,6 +38,14 @@ onRecordUpdateRequest((e) => {
         if (!isAdmin) {
             throw new ForbiddenError("ไม่มีสิทธิ์แก้ไขผู้ใช้อื่น")
         }
+
+        // (2.1) **ห้าม admin แตะบัญชี admin ด้วยกัน** — ถอดสิทธิ์/ปิดใช้งานกันเองไม่ได้
+        // ไม่งั้น admin คนไหนก็ล็อก admin คนอื่นออกจากระบบได้ รวมถึงเจ้าของระบบเอง
+        // (เลื่อน user ธรรมดาขึ้นเป็น admin ยังทำได้ตามปกติ — ห้ามเฉพาะการแตะคนที่เป็น admin อยู่แล้ว)
+        // ถอดสิทธิ์/ปิดใช้งาน admin ต้องทำผ่าน superuser ที่ Admin UI เท่านั้น
+        if (orig.get("role") === "admin") {
+            throw new ForbiddenError("บัญชีผู้ดูแลต้องให้ผู้ดูแลระบบสูงสุด (superuser) เป็นคนแก้ที่ Admin UI")
+        }
         // (3) แก้ได้เฉพาะ role กับ status — field อ่อนไหวอื่นห้ามแตะ (กันยึดบัญชีด้วยการเปลี่ยนอีเมล)
         const guarded = ["username", "email", "verified", "emailVisibility"]
         for (let i = 0; i < guarded.length; i++) {
