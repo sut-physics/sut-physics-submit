@@ -109,6 +109,21 @@
 .qcell-now { color: var(--st-complete); font-weight: 700; }
 .qcell-none { color: var(--ink-faint); }
 
+.rev-badge {
+    display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
+    background: var(--st-returned-bg); border: 1px solid var(--st-returned-line);
+    color: var(--st-returned); font-size: 11px; font-weight: 700; vertical-align: middle;
+}
+
+/* แถบเตือนผู้ส่งว่างานถูกตีกลับ + ปุ่มส่งกลับเข้าคิว */
+.resubmit-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding: 16px 26px; border-bottom: 1px solid var(--line);
+    background: var(--st-returned-bg);
+}
+.resubmit-bar .rs-text { font-size: 13.5px; line-height: 1.6; color: var(--ink); }
+.resubmit-bar .rs-text strong { display: block; color: var(--st-returned); margin-bottom: 2px; }
+
 /* ---------- detail view ---------- */
 .detail-view { padding: 22px 26px 60px; max-width: 760px; }
 .back-link {

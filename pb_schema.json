@@ -269,7 +269,7 @@
     "listRule": "sender = @request.auth.id || recipient = @request.auth.id",
     "viewRule": "sender = @request.auth.id || recipient = @request.auth.id",
     "createRule": "@request.auth.id != \"\" && @request.auth.status = \"approved\" && sender = @request.auth.id && sender != recipient",
-    "updateRule": "recipient = @request.auth.id",
+    "updateRule": "recipient = @request.auth.id || (sender = @request.auth.id && status = \"returned\")",
     "deleteRule": "sender = @request.auth.id || recipient = @request.auth.id",
     "name": "submissions",
     "type": "base",
@@ -402,6 +402,32 @@
         "required": false,
         "system": false,
         "type": "date"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "textsubqueuedat",
+        "max": 0,
+        "min": 0,
+        "name": "queuedAt",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "hidden": false,
+        "id": "numbersubrevision",
+        "max": null,
+        "min": 0,
+        "name": "revision",
+        "onlyInt": true,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
       }
     ],
     "indexes": [],
@@ -581,7 +607,7 @@
     "created": "2026-07-21 04:58:50.025Z",
     "updated": "2026-07-21 04:58:50.025Z",
     "system": false,
-    "viewQuery": "SELECT id, recipient, status, created FROM submissions"
+    "viewQuery": "SELECT id, recipient, status, created, queuedAt FROM submissions"
   },
   {
     "id": "pbc_1900000001",

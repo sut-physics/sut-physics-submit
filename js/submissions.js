@@ -39,12 +39,19 @@ function loadSubmissions() {
 
 // มีงานค้างอยู่ก่อนหน้างานนี้กี่ชิ้น ในคิวของผู้รับคนเดียวกัน
 // นับเฉพาะงานที่ยังไม่จบ (queue/review) และเข้าคิวมาก่อนเรา
+// เวลาที่เข้าคิวรอบล่าสุด — งานที่ส่งแก้กลับมาจะได้ค่าใหม่ จึงไปต่อท้ายแถว
+// (ข้อมูลเก่าก่อนมี field นี้ยังไม่มีค่า → ใช้ created แทน)
+function queuedTime(rec) {
+    return rec.queuedAt || rec.created;
+}
+
 function queueAhead(d) {
     if (d.status !== 'queue' && d.status !== 'review') return null;   // จบแล้ว/ตีกลับ = ไม่อยู่ในคิว
+    var mine = queuedTime(d);
     var n = 0;
     for (var i = 0; i < QUEUE_ROWS.length; i++) {
         var q = QUEUE_ROWS[i];
-        if (q.recipient === d.recipient && q.created < d.created) n++;
+        if (q.recipient === d.recipient && queuedTime(q) < mine) n++;
     }
     return n;
 }
@@ -235,6 +242,13 @@ function renderRail() {
 }
 
 // ---------- list rows ----------
+// ป้ายบอกว่างานนี้ถูกตีกลับแล้วส่งแก้กลับมา — ผู้ตรวจจะได้แยกออกจากงานใหม่ที่เพิ่งส่งครั้งแรก
+function revisionBadge(d) {
+    var n = d.revision || 0;
+    if (!n) return '';
+    return '<span class="rev-badge" title="เคยถูกตีกลับแล้วส่งแก้กลับมา ' + n + ' ครั้ง">แก้ครั้งที่ ' + n + '</span>';
+}
+
 // ช่องคิว: 0 = ถึงคิวเราแล้ว · ตัวเลข = รออีกกี่คิว · — = ไม่อยู่ในคิวแล้ว
 function queueCellHtml(d) {
     var n = queueAhead(d);
@@ -281,7 +295,7 @@ function renderRows() {
             : '<div class="due due-none">—</div>';
         return '<button class="row" data-id="' + d.id + '">' +
             '<div class="date tabular">' + formatDate(d.created) + '<span class="time">' + formatTime(d.created) + '</span></div>' +
-            '<div class="topic">' + escapeHtml(d.topic) + '<span class="code">' + deriveCode(d) + '</span></div>' +
+            '<div class="topic">' + escapeHtml(d.topic) + revisionBadge(d) + '<span class="code">' + deriveCode(d) + '</span></div>' +
             '<div class="who">' + escapeHtml(prefix + cp.name) + '</div>' +
             queueCellHtml(d) +
             dlHtml +
@@ -323,6 +337,17 @@ function openDetail(id) {
         statusSwitchHtml = '<div class="status-switch"><span class="s-label">เปลี่ยนสถานะ</span>' + segHtml + '</div>';
     }
 
+    // งานถูกตีกลับ → ผู้ส่งกดส่งกลับเข้าคิวได้เอง
+    // ไม่งั้นงานจะค้างอยู่เฉยๆ ผู้ตรวจไม่มีทางรู้ว่าแก้เสร็จแล้ว (ตอบในกระทู้อย่างเดียวไม่มีอะไรเตือน)
+    var resubmitHtml = '';
+    if (isSender && d.status === 'returned') {
+        resubmitHtml = '<div class="resubmit-bar">' +
+            '<div class="rs-text"><strong>งานนี้ถูกตีกลับให้แก้ไข</strong>' +
+            'แก้เสร็จแล้วให้แนบไฟล์ใหม่ในกระทู้ด้านล่างก่อน แล้วค่อยกดปุ่มนี้เพื่อส่งกลับเข้าคิว</div>' +
+            '<button class="btn btn-primary" id="resubmitBtn" type="button">ส่งงานที่แก้แล้ว</button>' +
+            '</div>';
+    }
+
     // ส่งต่อให้ผู้ตรวจคนอื่น — เฉพาะ recipient ปัจจุบัน (server บังคับซ้ำด้วย updateRule + hook)
     // ADMINS ไม่มีตัวเอง (adminRecipientFilter ตัดออก) → รายการที่ขึ้นคือคนอื่นล้วน
     var reassignHtml = '';
@@ -358,6 +383,7 @@ function openDetail(id) {
             '</div>' +
             statusSwitchHtml +
             reassignHtml +
+            resubmitHtml +
             '<div class="doc-body">' +
                 '<div><div class="field-label">รายละเอียด</div><div class="desc-text">' + (d.description ? escapeHtml(d.description) : '<span style="color:var(--ink-faint)">— ไม่มีรายละเอียด —</span>') + '</div></div>' +
                 '<div><div class="field-label">ไฟล์ที่แนบมา</div>' + fileHtml + '</div>' +
@@ -384,6 +410,9 @@ function openDetail(id) {
             btn.addEventListener('click', function () { changeStatus(d.id, btn.getAttribute('data-set')); });
         });
     }
+    var resubmitBtn = document.getElementById('resubmitBtn');
+    if (resubmitBtn) resubmitBtn.addEventListener('click', function () { resubmitSubmission(d.id); });
+
     var reassignBtn = document.getElementById('reassignBtn');
     if (reassignBtn) reassignBtn.addEventListener('click', function () { reassignSubmission(d.id); });
 
@@ -399,6 +428,30 @@ function openDetail(id) {
     document.getElementById('listView').classList.add('hidden');
     document.getElementById('detailView').classList.remove('hidden');
     window.scrollTo(0, 0);
+}
+
+// ผู้ส่งกดส่งงานที่แก้แล้วกลับเข้าคิว — สถานะกลับเป็น "รอดำเนินการ" และไปต่อท้ายแถว
+// (server เป็นคนตั้ง queuedAt ใหม่ + นับ revision ให้เอง ฝั่งนี้ส่งแค่ status)
+function resubmitSubmission(id) {
+    var btn = document.getElementById('resubmitBtn');
+    if (!confirm('ส่งงานที่แก้แล้วกลับเข้าคิว?\n\nงานจะไปต่อท้ายคิวของผู้ตรวจ และผู้ตรวจจะเห็นว่าเป็นงานที่ส่งแก้กลับมา\n\nอย่าลืมแนบไฟล์ที่แก้แล้วในกระทู้ก่อน')) return;
+
+    btn.disabled = true;
+    _savingInProgress = true;
+    pb.collection('submissions').update(id, { status: 'queue' }, { requestKey: 'resubmit' })
+        .then(function () {
+            _savingInProgress = false;
+            return refreshList();
+        })
+        .then(function () {
+            if (listState.openId) openDetail(listState.openId);   // วาดหน้า detail ใหม่ให้ปุ่มหาย
+        })
+        .catch(function (err) {
+            _savingInProgress = false;
+            btn.disabled = false;
+            console.error('ส่งกลับเข้าคิวไม่สำเร็จ:', err);
+            alert(apiErrorMessage(err, 'ส่งกลับเข้าคิวไม่สำเร็จ'));
+        });
 }
 
 // ส่งต่องานให้ผู้ตรวจคนอื่น — พอส่งต่อแล้วเราจะหลุดสิทธิ์ทันที (list rule ไม่เห็นเรื่องนี้อีก)

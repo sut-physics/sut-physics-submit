@@ -91,8 +91,32 @@ onRecordUpdateRequest((e) => {
         return
     }
 
+    const auth = e.requestInfo().auth
     const rec = e.record
     const orig = rec.original()
+    const isRecipient = !!auth && auth.id === orig.get("recipient")
+    const isSender = !!auth && auth.id === orig.get("sender")
+
+    // ---------- ผู้ส่ง: ทำได้อย่างเดียวคือ "ส่งงานที่แก้แล้ว" กลับเข้าคิว ----------
+    // updateRule เปิดให้ผู้ส่งแก้ได้เฉพาะตอนสถานะเป็น returned อยู่แล้ว
+    // ตรงนี้จำกัดต่อว่าแก้ได้แค่ "สถานะ" เท่านั้น ห้ามแอบแก้หัวข้อ/ไฟล์/กำหนดส่ง/ผู้รับ
+    // (ไม่งั้นจะกลายเป็นช่องแก้เนื้องานย้อนหลังหลังผู้ตรวจอ่านไปแล้ว)
+    if (isSender && !isRecipient) {
+        if (orig.get("status") !== "returned" || rec.get("status") !== "queue") {
+            throw new ForbiddenError("ผู้ส่งเปลี่ยนสถานะเองได้เฉพาะการส่งงานที่แก้แล้วกลับเข้าคิว")
+        }
+        const locked = ["topic", "description", "sender", "recipient", "deadline", "file"]
+        for (let i = 0; i < locked.length; i++) {
+            if (String(rec.get(locked[i])) !== String(orig.get(locked[i]))) {
+                throw new ForbiddenError("ส่งงานที่แก้แล้วได้ แต่แก้เนื้อหางานเดิมไม่ได้ — ให้แนบไฟล์ใหม่ในกระทู้ตอบกลับแทน")
+            }
+        }
+        // ไปต่อท้ายแถว: นับคิวใช้ queuedAt ไม่ใช่ created
+        rec.set("queuedAt", new Date().toISOString())
+        rec.set("revision", (orig.get("revision") || 0) + 1)
+        e.next()
+        return
+    }
 
     if (rec.get("recipient") !== orig.get("recipient")) {
         const newId = rec.get("recipient")
@@ -219,3 +243,14 @@ routerAdd("POST", "/api/pwreset/set", (e) => {
 
     e.json(200, { ok: true, username: user.get("username"), password: password })
 }, $apis.requireAuth())
+
+// ============================================================
+// งานใหม่ = เข้าคิวตอนนี้
+// เก็บ `queuedAt` แยกจาก `created` เพราะงานที่ถูกตีกลับแล้วส่งแก้กลับมา
+// ต้องไปต่อท้ายแถว (queuedAt ขยับ) แต่ยังต้องรู้ว่าส่งครั้งแรกเมื่อไหร่ (created คงเดิม)
+// ============================================================
+onRecordCreateRequest((e) => {
+    e.record.set("queuedAt", new Date().toISOString())
+    e.record.set("revision", 0)
+    e.next()
+}, "submissions")
