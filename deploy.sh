@@ -53,6 +53,23 @@ echo "จะทำ:     ${STEPS[*]}${COMMIT_MSG:+  · commit: \"$COMMIT_MSG\"}"
 
 $SSH true 2>/dev/null || die "ต่อ VM ไม่ได้ ($VM_HOST) — เช็คเน็ต/คีย์/เครื่องเปิดอยู่ไหม"
 
+# ---------- ขยับ ?v= ก่อนทุกอย่าง ----------
+# ต้องทำ **ก่อน** ขั้น git ไม่งั้น commit ไปแล้วค่อยแก้ index.html → เหลือไฟล์ค้างทุกครั้ง
+# hash จาก css/js เท่านั้น ไม่รวม index.html เพราะ ?v= ฝังอยู่ในนั้น จะไล่กันเองไม่จบ
+# เนื้อไม่เปลี่ยน = hash เดิม = ไม่มี diff ให้รก
+if has frontend; then
+    NEWV=$(cat css/*.css js/*.js | sha256sum | head -c 8)
+    CURV=$(grep -oE 'variables\.css\?v=[a-z0-9]+' index.html | head -1 | sed 's/.*v=//')
+    if [ "$NEWV" != "$CURV" ]; then
+        if [ $CHECK_ONLY -eq 1 ]; then
+            echo; warn "?v= ยังเป็น $CURV แต่เนื้อ css/js เปลี่ยนเป็น $NEWV แล้ว"
+        else
+            sed -i -E "s/\?v=[a-z0-9]+/?v=$NEWV/g" index.html
+            echo; ok "ขยับ ?v= : $CURV → $NEWV  ${C_DIM}(จะติดไปกับ commit ด้วย)${C_OFF}"
+        fi
+    fi
+fi
+
 # ============================================================
 # 1) git — commit + push
 # ============================================================
@@ -86,22 +103,6 @@ fi
 # ============================================================
 if has frontend; then
     step "frontend → pb_public/"
-
-    # ขยับ ?v= ให้เป็น hash ของเนื้อ css+js อัตโนมัติ — กันเบราว์เซอร์ใช้ไฟล์เก่าค้าง
-    # (เนื้อไม่เปลี่ยน = hash เดิม = ไม่มี diff ให้รก) hash จาก css/js เท่านั้น ไม่รวม index.html
-    # ไม่งั้นจะไล่กันเองไม่จบ เพราะ ?v= ฝังอยู่ใน index.html
-    NEWV=$(cat css/*.css js/*.js | sha256sum | head -c 8)
-    CURV=$(grep -oE 'variables\.css\?v=[a-z0-9]+' index.html | head -1 | sed 's/.*v=//')
-    if [ "$NEWV" != "$CURV" ]; then
-        if [ $CHECK_ONLY -eq 1 ]; then
-            warn "?v= ยังเป็น $CURV แต่เนื้อ css/js เปลี่ยนเป็น $NEWV แล้ว"
-        else
-            sed -i -E "s/\?v=[a-z0-9]+/?v=$NEWV/g" index.html
-            ok "ขยับ ?v= : $CURV → $NEWV"
-        fi
-    else
-        ok "?v= ตรงกับเนื้อไฟล์แล้ว ($CURV)"
-    fi
 
     if [ $CHECK_ONLY -eq 0 ]; then
         tar -czf /tmp/_fe.tgz index.html css js
