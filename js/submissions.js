@@ -15,16 +15,38 @@ function initSubmissions() {
 }
 
 function loadSubmissions() {
-    return pb.collection('submissions').getFullList({
-        sort: '-created',
-        expand: 'sender,recipient',
-        requestKey: 'listSubmissions'
-    }).then(function (records) {
-        SUBMISSIONS = records;
+    return Promise.all([
+        pb.collection('submissions').getFullList({
+            sort: '-created',
+            expand: 'sender,recipient',
+            requestKey: 'listSubmissions'
+        }),
+        // ตารางคิวรวมของทุกคน — ไม่มีข้อมูลอ่อนไหว (id/recipient/status/created เท่านั้น)
+        // ยิงครั้งเดียวแล้วคำนวณในเครื่อง ดีกว่ายิงนับทีละแถว
+        pb.collection('submission_queue').getFullList({
+            filter: 'status = "queue" || status = "review"',
+            requestKey: 'listQueue'
+        }).catch(function () { return []; })
+    ]).then(function (r) {
+        SUBMISSIONS = r[0];
+        QUEUE_ROWS = r[1];
     }).catch(function (err) {
         console.error('โหลด submissions ไม่สำเร็จ:', err);
         SUBMISSIONS = [];
+        QUEUE_ROWS = [];
     });
+}
+
+// มีงานค้างอยู่ก่อนหน้างานนี้กี่ชิ้น ในคิวของผู้รับคนเดียวกัน
+// นับเฉพาะงานที่ยังไม่จบ (queue/review) และเข้าคิวมาก่อนเรา
+function queueAhead(d) {
+    if (d.status !== 'queue' && d.status !== 'review') return null;   // จบแล้ว/ตีกลับ = ไม่อยู่ในคิว
+    var n = 0;
+    for (var i = 0; i < QUEUE_ROWS.length; i++) {
+        var q = QUEUE_ROWS[i];
+        if (q.recipient === d.recipient && q.created < d.created) n++;
+    }
+    return n;
 }
 
 // รายชื่อผู้รับที่เลือกได้ = admin ทุกคน ยกเว้นตัวเอง (ส่งงานให้ตัวเองตรวจไม่มีความหมาย)
@@ -95,7 +117,7 @@ function deadlineInfo(rec) {
 
 function initials(name) {
     var t = (name || '').trim();
-    return t ? t.slice(0, 2) : '?';
+    return t ? t.slice(0, 3) : '?';
 }
 
 function deriveCode(rec) {
@@ -197,6 +219,7 @@ function renderRail() {
     Array.prototype.forEach.call(document.querySelectorAll('[data-f]'), function (btn) {
         btn.addEventListener('click', function () {
             listState.filter = btn.getAttribute('data-f');
+            if (listState.openId) closeDetail();   // อยู่หน้า detail อยู่ → เด้งกลับมาหน้ารายการให้เห็นผลการกรอง
             renderRail();
             renderRows();
         });
@@ -204,6 +227,7 @@ function renderRail() {
     Array.prototype.forEach.call(document.querySelectorAll('[data-dir]'), function (btn) {
         btn.addEventListener('click', function () {
             listState.direction = btn.getAttribute('data-dir');
+            if (listState.openId) closeDetail();
             renderRail();
             renderRows();
         });
@@ -211,6 +235,14 @@ function renderRail() {
 }
 
 // ---------- list rows ----------
+// ช่องคิว: 0 = ถึงคิวเราแล้ว · ตัวเลข = รออีกกี่คิว · — = ไม่อยู่ในคิวแล้ว
+function queueCellHtml(d) {
+    var n = queueAhead(d);
+    if (n === null) return '<div class="qcell qcell-none">—</div>';
+    if (n === 0)    return '<div class="qcell qcell-now">ถึงคิวแล้ว</div>';
+    return '<div class="qcell tabular">รออีก <b>' + n + '</b> คิว</div>';
+}
+
 function renderRows() {
     var rowsEl = document.getElementById('rows');
     var list = SUBMISSIONS.filter(function (d) {
@@ -251,6 +283,7 @@ function renderRows() {
             '<div class="date tabular">' + formatDate(d.created) + '<span class="time">' + formatTime(d.created) + '</span></div>' +
             '<div class="topic">' + escapeHtml(d.topic) + '<span class="code">' + deriveCode(d) + '</span></div>' +
             '<div class="who">' + escapeHtml(prefix + cp.name) + '</div>' +
+            queueCellHtml(d) +
             dlHtml +
             '<div class="chip ' + st.cls + '"><span class="dot"></span>' + st.label + '</div>' +
             '<div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"></polyline></svg></div>' +
@@ -313,7 +346,7 @@ function openDetail(id) {
                     '<div class="eyebrow">' + deriveCode(d) + '</div>' +
                     '<h2>' + escapeHtml(d.topic) + '</h2>' +
                     '<div class="doc-meta-row">' +
-                        '<span class="item"><span class="avatar" style="width:22px;height:22px;font-size:10.5px;">' + escapeHtml(initials(senderName(d))) + '</span>' + escapeHtml(senderName(d)) + '</span>' +
+                        '<span class="item"><span class="avatar" style="width:27px;height:27px;font-size:10.5px;">' + escapeHtml(initials(senderName(d))) + '</span>' + escapeHtml(senderName(d)) + '</span>' +
                         '<span class="item">→ ' + escapeHtml(recipientName(d)) + '</span>' +
                         '<span class="item tabular">ส่งเมื่อ ' + formatDate(d.created) + ' ' + formatTime(d.created) + '</span>' +
                         (dl ? '<span class="item tabular due due-' + dl.level + '">กำหนดส่ง ' + formatDate(d.deadline) +

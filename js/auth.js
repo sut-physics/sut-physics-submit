@@ -5,8 +5,15 @@
 // santa เลื่อนคนเป็น admin เองผ่าน PocketBase Admin UI
 // ============================================================
 
+// ชื่อผู้ใช้ไม่แคร์ตัวใหญ่ตัวเล็ก — เก็บและใช้เป็นตัวเล็กเสมอ
+// (ก่อนหน้านี้ "Yip" กับ "yip" กลายเป็นคนละบัญชี เพราะถูกแปลงเป็นอีเมลคนละตัว)
+function normalizeUsername(username) {
+    return (username || '').trim().toLowerCase();
+}
+
 function usernameToIdentity(username) {
-    return username.indexOf('@') >= 0 ? username : username + FAKE_EMAIL_DOMAIN;
+    var u = normalizeUsername(username);
+    return u.indexOf('@') >= 0 ? u : u + FAKE_EMAIL_DOMAIN;
 }
 
 function setCurrentUserFromRecord(user) {
@@ -76,17 +83,27 @@ function recheckApproval() {
 }
 
 function attemptLogin() {
-    var username = document.getElementById('usernameInput').value.trim();
+    var username = document.getElementById('usernameInput').value;
     var password = document.getElementById('passwordInput').value;
     var errorEl = document.getElementById('loginError');
 
-    if (!username || !password) {
+    if (!username.trim() || !password) {
         errorEl.textContent = 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน';
         errorEl.style.display = 'block';
         return;
     }
 
-    pb.collection('users').authWithPassword(usernameToIdentity(username), password)
+    // ลองด้วยชื่อตัวเล็กก่อน ถ้าไม่ผ่านค่อยลองตามที่พิมพ์มาจริง —
+    // เผื่อมีบัญชีเก่าที่ถูกสร้างด้วยตัวใหญ่ไว้ (เช่นสร้างจาก Admin UI) จะได้ยัง login ได้
+    var raw = username.trim();
+    var identity = usernameToIdentity(username);
+    var rawIdentity = raw.indexOf('@') >= 0 ? raw : raw + FAKE_EMAIL_DOMAIN;
+
+    pb.collection('users').authWithPassword(identity, password)
+        .catch(function (err) {
+            if (rawIdentity === identity) throw err;
+            return pb.collection('users').authWithPassword(rawIdentity, password);
+        })
         .then(function (authData) {
             setCurrentUserFromRecord(authData.record);
             errorEl.style.display = 'none';
@@ -102,7 +119,7 @@ function attemptLogin() {
 }
 
 function submitSignup() {
-    var username = document.getElementById('signupUsernameInput').value.trim();
+    var username = normalizeUsername(document.getElementById('signupUsernameInput').value);
     var displayName = document.getElementById('signupDisplayNameInput').value.trim();
     var password = document.getElementById('signupPasswordInput').value;
     var passwordConfirm = document.getElementById('signupPasswordConfirmInput').value;
@@ -126,14 +143,14 @@ function submitSignup() {
 
     pb.collection('users').create({
         username: username,
-        email: username + FAKE_EMAIL_DOMAIN,
+        email: usernameToIdentity(username),
         password: password,
         passwordConfirm: passwordConfirm,
         displayName: displayName,
         role: 'user',        // สมัครเป็น user เสมอ (server บังคับซ้ำผ่าน createRule)
         status: 'pending'    // ต้องรอ santa อนุมัติก่อนถึงส่งงานได้ (กันคนหลงเข้ามายิงมั่ว)
     }).then(function () {
-        return pb.collection('users').authWithPassword(username + FAKE_EMAIL_DOMAIN, password);
+        return pb.collection('users').authWithPassword(usernameToIdentity(username), password);
     }).then(function (authData) {
         setCurrentUserFromRecord(authData.record);
         errorEl.style.display = 'none';
@@ -217,7 +234,7 @@ function forgotRestart() {
 }
 
 function submitForgot() {
-    var username = document.getElementById('forgotUsernameInput').value.trim();
+    var username = normalizeUsername(document.getElementById('forgotUsernameInput').value);
     var btn = document.getElementById('forgotSubmitBtn');
     if (!username) return forgotError('กรุณากรอกชื่อผู้ใช้');
 

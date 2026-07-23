@@ -7,6 +7,10 @@ var currentUser = { id: '', username: '', role: '', displayName: '', status: '' 
 // ข้อมูล submissions ที่โหลดมา (record + expand sender/recipient), sort ใหม่สุดก่อน
 var SUBMISSIONS = [];
 
+// แถวจาก view `submission_queue` (id/recipient/status/created) ของงานที่ยังค้างทั้งระบบ
+// ใช้คำนวณ "คิวก่อนหน้า" ในเครื่อง — ไม่มีข้อมูลอ่อนไหว ไม่เห็นหัวข้อ/ไฟล์ของใคร
+var QUEUE_ROWS = [];
+
 // UI state ของ list view
 // direction: 'all' | 'received' (ส่งถึงเรา) | 'sent' (เราส่งออก)
 var listState = { filter: 'all', direction: 'all', query: '', openId: null };
