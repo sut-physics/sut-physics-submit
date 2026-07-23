@@ -120,13 +120,22 @@ function attemptLogin() {
 
 function submitSignup() {
     var username = normalizeUsername(document.getElementById('signupUsernameInput').value);
-    var displayName = document.getElementById('signupDisplayNameInput').value.trim();
+    var firstName = document.getElementById('signupFirstNameInput').value.trim();
+    var lastName = document.getElementById('signupLastNameInput').value.trim();
     var password = document.getElementById('signupPasswordInput').value;
     var passwordConfirm = document.getElementById('signupPasswordConfirmInput').value;
     var errorEl = document.getElementById('signupError');
 
-    if (!username || !displayName || !password) {
+    // เก็บลง displayName ช่องเดียวเหมือนเดิม แค่แยกช่องกรอกให้ไม่สับสนกับ username
+    var displayName = (firstName + ' ' + lastName).trim();
+
+    if (!username || !firstName || !lastName || !password) {
         errorEl.textContent = 'กรุณากรอกข้อมูลให้ครบทุกช่อง';
+        errorEl.style.display = 'block';
+        return;
+    }
+    if (/\s/.test(username)) {
+        errorEl.textContent = 'ชื่อผู้ใช้ห้ามมีเว้นวรรค';
         errorEl.style.display = 'block';
         return;
     }

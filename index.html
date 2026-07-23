@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ส่งงาน — สาขาวิชาฟิสิกส์</title>
-    <link rel="stylesheet" href="css/variables.css?v=caca1ca5">
-    <link rel="stylesheet" href="css/base.css?v=caca1ca5">
-    <link rel="stylesheet" href="css/submit.css?v=caca1ca5">
+    <link rel="stylesheet" href="css/variables.css?v=fb5c6d98">
+    <link rel="stylesheet" href="css/base.css?v=fb5c6d98">
+    <link rel="stylesheet" href="css/submit.css?v=fb5c6d98">
 </head>
 <body>
 
@@ -15,7 +15,7 @@
     <div class="auth-card">
         <div class="auth-brand">ส่งงาน<span>สาขาวิชาฟิสิกส์</span></div>
         <p class="auth-lead">เข้าสู่ระบบเพื่อส่งงานให้ตรวจ และติดตามสถานะ</p>
-        <label class="field-label">ชื่อผู้ใช้</label>
+        <label class="field-label">ชื่อผู้ใช้ (username)</label>
         <input id="usernameInput" class="auth-input" type="text" autocomplete="username" placeholder="ชื่อผู้ใช้">
         <label class="field-label">รหัสผ่าน</label>
         <input id="passwordInput" class="auth-input" type="password" autocomplete="current-password" placeholder="รหัสผ่าน">
@@ -30,10 +30,21 @@
 <div id="signupScreen" class="auth-screen hidden">
     <div class="auth-card">
         <div class="auth-brand">สมัครสมาชิก<span>สมัครแล้วรอผู้ดูแลอนุมัติก่อนใช้งาน</span></div>
-        <label class="field-label">ชื่อผู้ใช้ (ภาษาอังกฤษ)</label>
-        <input id="signupUsernameInput" class="auth-input" type="text" autocomplete="username" placeholder="เช่น somchai">
-        <label class="field-label">ชื่อที่แสดง</label>
-        <input id="signupDisplayNameInput" class="auth-input" type="text" placeholder="เช่น สมชาย ใจดี">
+        <label class="field-label">ชื่อผู้ใช้ (username)</label>
+        <input id="signupUsernameInput" class="auth-input" type="text" autocomplete="username" placeholder="somchai">
+        <div class="field-hint">ใช้ตอนเข้าสู่ระบบ · ภาษาอังกฤษ ห้ามเว้นวรรค · ตัวใหญ่-เล็กไม่ต่างกัน</div>
+
+        <div class="field-pair">
+            <div>
+                <label class="field-label">ชื่อจริง</label>
+                <input id="signupFirstNameInput" class="auth-input" type="text" autocomplete="given-name" placeholder="สมชาย">
+            </div>
+            <div>
+                <label class="field-label">นามสกุล</label>
+                <input id="signupLastNameInput" class="auth-input" type="text" autocomplete="family-name" placeholder="ใจดี">
+            </div>
+        </div>
+        <div class="field-hint">ชื่อที่คนอื่นเห็นในระบบ · ภาษาไทยได้</div>
         <label class="field-label">รหัสผ่าน (อย่างน้อย 8 ตัว)</label>
         <input id="signupPasswordInput" class="auth-input" type="password" autocomplete="new-password" placeholder="รหัสผ่าน">
         <label class="field-label">ยืนยันรหัสผ่าน</label>
@@ -280,11 +291,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/pocketbase@0.25.2/dist/pocketbase.umd.js"></script>
-<script src="js/config.js?v=caca1ca5"></script>
-<script src="js/state.js?v=caca1ca5"></script>
-<script src="js/auth.js?v=caca1ca5"></script>
-<script src="js/submissions.js?v=caca1ca5"></script>
-<script src="js/admin.js?v=caca1ca5"></script>
-<script src="js/app.js?v=caca1ca5"></script>
+<script src="js/config.js?v=fb5c6d98"></script>
+<script src="js/state.js?v=fb5c6d98"></script>
+<script src="js/auth.js?v=fb5c6d98"></script>
+<script src="js/submissions.js?v=fb5c6d98"></script>
+<script src="js/admin.js?v=fb5c6d98"></script>
+<script src="js/app.js?v=fb5c6d98"></script>
 </body>
 </html>

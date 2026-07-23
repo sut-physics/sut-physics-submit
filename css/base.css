@@ -155,6 +155,11 @@ button { cursor: pointer; }
     color: var(--ink-faint); margin: 0 0 6px;
 }
 
+/* คำอธิบายใต้ช่องกรอก — บอกว่าช่องนั้นเอาไปทำอะไร กันสับสนระหว่าง username กับชื่อจริง */
+.field-hint { font-size: 12.5px; color: var(--ink-faint); margin: -8px 0 14px; line-height: 1.5; }
+.field-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field-pair .auth-input { margin-bottom: 0; }
+
 .pending-badge {
     display: inline-block;
     margin: 0 auto 14px;
