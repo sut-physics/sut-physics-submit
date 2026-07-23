@@ -124,7 +124,7 @@ button { cursor: pointer; }
 /* ---------- auth screens ---------- */
 .auth-screen { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .auth-card {
-    width: 100%; max-width: 380px;
+    width: 100%; max-width: 412px;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 12px;
@@ -156,9 +156,18 @@ button { cursor: pointer; }
 }
 
 /* คำอธิบายใต้ช่องกรอก — บอกว่าช่องนั้นเอาไปทำอะไร กันสับสนระหว่าง username กับชื่อจริง */
-.field-hint { font-size: 12.5px; color: var(--ink-faint); margin: -8px 0 14px; line-height: 1.5; }
+.field-hint {
+    font-size: 13px; line-height: 1.65; color: var(--ink-muted);
+    margin: -6px 0 16px; padding-left: 11px;
+    border-left: 2px solid var(--line-strong);
+}
+.field-hint strong { color: var(--ink); font-weight: 700; }
+
 .field-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* ช่องในคู่ไม่ต้องมีระยะล่าง ให้ .field-hint ที่ตามมาเป็นคนคุมระยะเอง
+   (ถ้าไม่ตั้งตรงนี้ margin ติดลบของ .field-hint จะดึงตัวเองขึ้นไปทับช่องกรอก) */
 .field-pair .auth-input { margin-bottom: 0; }
+.field-pair + .field-hint { margin-top: 9px; }
 
 .pending-badge {
     display: inline-block;
