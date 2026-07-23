@@ -18,6 +18,9 @@ ssh -i "$VM_SSH_KEY" "$VM_USER@$VM_HOST"
 - เครื่องเป็น AMD E2.1.Micro (x86_64) · RAM 956MB + swap 2GB · disk 43GB · Ubuntu 22.04
 - swap อยู่ที่ `/swapfile` (ใส่ `/etc/fstab` + `vm.swappiness=10` แล้ว) — RAM น้อย ถ้าไม่มี swap PocketBase ตายตอน build index
 - บัญชี Oracle เป็น **Free Trial** (อัป PAYG ไม่ผ่าน บัตรโดนปฏิเสธ) แต่ instance เป็น Always-Free-eligible = ฿0
+- **OCI CLI** ตั้งค่าไว้แล้วที่ `~/.oci/` (config + API key) — สั่งงาน/สร้าง instance ผ่าน CLI ได้
+  สคริปต์วนกดขอ VM ตอนหาเครื่องว่างไม่ได้อยู่ที่ `~/oci-retry/` (กว่าจะได้เครื่องต้องรันข้ามคืน
+  shape A1 ARM เต็มตลอด สุดท้ายได้ E2.1.Micro แทน) — ทั้งสองอย่างอยู่บนเครื่อง dev ไม่ได้อยู่ใน repo
 
 ## 2. PocketBase
 
@@ -61,6 +64,9 @@ sudo tailscale funnel status
 sudo tailscale funnel --bg 8090          # เปิดใหม่
 sudo tailscale funnel --https=443 off    # ปิด
 ```
+
+- บัญชี Tailscale ที่ผูกเครื่องนี้ไว้: ดู `TS_ACCOUNT` ใน `.env` — **ถ้าเข้าบัญชีนั้นไม่ได้ = ต่ออายุ/แก้ Funnel ไม่ได้**
+- cert Let's Encrypt ต่ออายุอัตโนมัติ (ใบปัจจุบันหมด 21 ต.ค. 2026) ไม่ต้องทำอะไร
 
 `cloudflared` ติดตั้งค้างไว้บนเครื่อง (v2026.7.2) แต่ **ไม่ได้ใช้** — ถ้าจะย้ายไปโดเมนตัวเองทำตาม DEPLOY.md ขั้น 4A
 
