@@ -43,16 +43,15 @@ ssh -i "$VM_SSH_KEY" -L 8090:127.0.0.1:8090 "$VM_USER@$VM_HOST"
 # แล้วเปิด http://127.0.0.1:8090/_/
 ```
 
-**อัป frontend + hooks ขึ้นเครื่อง** (ตอนยังไม่ได้ใช้ GitHub Actions)
+**อัปทุกอย่างขึ้นเครื่อง — ใช้ `./deploy.sh`** (ไม่ต้องจำคำสั่งเอง)
 ```bash
-rsync -az --delete -e "ssh -i $VM_SSH_KEY" index.html css js "$VM_USER@$VM_HOST:/tmp/site/"
-scp -i "$VM_SSH_KEY" pb_hooks/main.pb.js "$VM_USER@$VM_HOST:/tmp/main.pb.js"
-ssh -i "$VM_SSH_KEY" "$VM_USER@$VM_HOST" 'sudo rsync -a --delete /tmp/site/ /opt/pocketbase/pb_public/ \
-  && sudo cp /tmp/main.pb.js /opt/pocketbase/pb_hooks/main.pb.js \
-  && sudo chown -R pocketbase:pocketbase /opt/pocketbase/pb_public /opt/pocketbase/pb_hooks \
-  && sudo systemctl restart pocketbase'
+./deploy.sh --check                  # ตรวจว่าของบนเครื่องตรงกับ repo ไหม ไม่แก้อะไร
+./deploy.sh -m "ข้อความ commit"       # commit + push + อัปทุกอย่าง + ตรวจผล
+./deploy.sh hooks                    # เลือกทำเฉพาะบางขั้น (git/frontend/hooks/schema/backup/verify)
 ```
-> อย่าลืมขยับ `?v=` ท้าย css/js ใน `index.html` ไม่งั้นเบราว์เซอร์ใช้ของเก่า
+สคริปต์จัดการให้เอง: ขยับ `?v=` ตาม hash ของ css/js · restart PocketBase เฉพาะตอน hooks เปลี่ยนจริง ·
+คืนเจ้าของ `pb_public` เป็น `deploy:deploy` (ไม่งั้น GitHub Actions เขียนทับไม่ได้รอบถัดไป) ·
+ปิดท้ายด้วยการยิงเช็คว่าเว็บ 200 และ pb_hooks โหลดอยู่จริง
 
 ## 3. HTTPS — Tailscale Funnel
 

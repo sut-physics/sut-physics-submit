@@ -47,6 +47,16 @@
   ตัวที่ใช้จริงคือ `scripts/snapshot-local.sh` (บน VM) + `scripts/nas-pull.sh` (บน NAS))
 - Backup แบบประหยัด (DB snapshot เล็ก + ไฟล์แนบ incremental) — ทดสอบวงจร backup→restore ครบแล้ว
 
+### 🚀 `./deploy.sh` — สั่งครั้งเดียวจบ (23 ก.ค.)
+`./deploy.sh -m "ข้อความ"` = commit + push + อัป frontend/hooks/schema/สคริปต์ backup + ตรวจผล
+`./deploy.sh --check` = ตรวจอย่างเดียวว่าของบนเครื่องตรงกับ repo ไหม · เลือกทำทีละขั้นก็ได้
+- **ปิดช่องโหว่ที่ลืม `pb_hooks` ได้** — เดิมต้อง scp มือทุกครั้ง ลืมเมื่อไหร่ ด่านความปลอดภัยหายเงียบๆ
+  โดยเว็บยังทำงานปกติ ไม่มี error เตือน · ตอนนี้ verify ยิง `/api/pwreset/request` เช็คว่า hooks โหลดอยู่จริง
+- ขยับ `?v=` ให้เองจาก hash ของ css/js (เนื้อไม่เปลี่ยน = ไม่มี diff รก) — **ต้องทำก่อนขั้น git**
+  ไม่งั้น commit ไปแล้วค่อยแก้ index.html จะเหลือไฟล์ค้างทุกครั้ง (เจอตอนรันจริงรอบแรก)
+- restart PocketBase เฉพาะตอน hooks เปลี่ยนจริง (เทียบ sha256) — ไม่ restart ทิ้งๆ ขว้างๆ
+- คืนเจ้าของ `pb_public` เป็น `deploy:deploy` เสมอ ไม่งั้น GitHub Actions เขียนทับไม่ได้รอบถัดไป
+
 ### 🐙 ขึ้น GitHub + auto-deploy แล้ว (23 ก.ค.)
 **repo: https://github.com/sut-physics/sut-physics-submit (private)**
 - push ไฟล์ `index.html`/`css/`/`js/` ขึ้น `main` → **deploy เองภายใน ~15 วินาที** (ทดสอบผ่านแล้ว)
