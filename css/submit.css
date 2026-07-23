@@ -115,14 +115,10 @@
     color: var(--st-returned); font-size: 11px; font-weight: 700; vertical-align: middle;
 }
 
-/* แถบเตือนผู้ส่งว่างานถูกตีกลับ + ปุ่มส่งกลับเข้าคิว */
-.resubmit-bar {
-    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-    padding: 16px 26px; border-bottom: 1px solid var(--line);
-    background: var(--st-returned-bg);
-}
-.resubmit-bar .rs-text { font-size: 13.5px; line-height: 1.6; color: var(--ink); }
-.resubmit-bar .rs-text strong { display: block; color: var(--st-returned); margin-bottom: 2px; }
+/* กล่องตอบกลับตอนกำลังแก้งานที่ถูกตีกลับ — ปุ่มเดียวจบทั้งตอบและส่งกลับเข้าคิว */
+.composer.is-fixing { border-color: var(--st-returned-line); background: var(--st-returned-bg); }
+.composer-note { font-size: 13.5px; line-height: 1.6; color: var(--ink); }
+.composer-note strong { display: block; color: var(--st-returned); margin-bottom: 2px; }
 
 /* ---------- detail view ---------- */
 .detail-view { padding: 22px 26px 60px; max-width: 760px; }
@@ -165,7 +161,7 @@
 .stamp.returned { color: var(--st-returned); border: 2px solid var(--st-returned); }
 
 .status-switch {
-    display: flex; gap: 6px; padding: 16px 26px; border-bottom: 1px solid var(--line);
+    display: flex; gap: 6px; padding: 16px 26px; border-top: 1px solid var(--line);
     background: var(--surface-2); flex-wrap: wrap;
 }
 .status-switch .s-label { font-size: 14.5px; color: var(--ink-faint); align-self: center; margin-right: 4px; }

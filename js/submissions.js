@@ -340,16 +340,15 @@ function openDetail(id) {
         statusSwitchHtml = '<div class="status-switch"><span class="s-label">เปลี่ยนสถานะ</span>' + segHtml + '</div>';
     }
 
-    // งานถูกตีกลับ → ผู้ส่งกดส่งกลับเข้าคิวได้เอง
-    // ไม่งั้นงานจะค้างอยู่เฉยๆ ผู้ตรวจไม่มีทางรู้ว่าแก้เสร็จแล้ว (ตอบในกระทู้อย่างเดียวไม่มีอะไรเตือน)
-    var resubmitHtml = '';
-    if (isSender && d.status === 'returned') {
-        resubmitHtml = '<div class="resubmit-bar">' +
-            '<div class="rs-text"><strong>งานนี้ถูกตีกลับให้แก้ไข</strong>' +
-            'แก้เสร็จแล้วให้แนบไฟล์ใหม่ในกระทู้ด้านล่างก่อน แล้วค่อยกดปุ่มนี้เพื่อส่งกลับเข้าคิว</div>' +
-            '<button class="btn btn-primary" id="resubmitBtn" type="button">ส่งงานที่แก้แล้ว</button>' +
-            '</div>';
-    }
+    // งานถูกตีกลับ + เราเป็นผู้ส่ง → กล่องตอบกลับด้านล่างกลายเป็น "ส่งงานที่แก้แล้ว"
+    // ปุ่มเดียวจบ: ส่งข้อความ/ไฟล์ในกระทู้ **แล้วดันงานกลับเข้าคิวให้เลย**
+    // (เดิมแยกเป็นแถบด้านบนกับปุ่มตอบกลับด้านล่าง คนใช้งงว่าต้องกดอันไหนก่อน)
+    var isFixing = isSender && d.status === 'returned';
+    var composerNote = isFixing
+        ? '<div class="composer-note"><strong>งานนี้ถูกตีกลับให้แก้ไข</strong>' +
+          'แนบไฟล์ที่แก้แล้วหรือพิมพ์อธิบาย แล้วกดปุ่มเดียวจบ — ระบบจะส่งเข้ากระทู้และดันงานกลับเข้าคิวให้อัตโนมัติ</div>'
+        : '';
+    var sendLabel = isFixing ? 'ส่งงานที่แก้แล้ว' : 'ส่งคำตอบ';
 
     // ส่งต่อให้ผู้ตรวจคนอื่น — เฉพาะ recipient ปัจจุบัน (server บังคับซ้ำด้วย updateRule + hook)
     // ADMINS ไม่มีตัวเอง (adminRecipientFilter ตัดออก) → รายการที่ขึ้นคือคนอื่นล้วน
@@ -384,26 +383,27 @@ function openDetail(id) {
                 '</div>' +
                 '<div class="stamp ' + st.cls + '"><span class="txt">' + st.label + '</span></div>' +
             '</div>' +
-            statusSwitchHtml +
-            reassignHtml +
-            resubmitHtml +
             '<div class="doc-body">' +
                 '<div><div class="field-label">รายละเอียด</div><div class="desc-text">' + (d.description ? escapeHtml(d.description) : '<span style="color:var(--ink-faint)">— ไม่มีรายละเอียด —</span>') + '</div></div>' +
                 '<div><div class="field-label">ไฟล์ที่แนบมา</div>' + fileHtml + '</div>' +
                 '<hr class="divider">' +
                 '<div><div class="field-label">การตอบกลับ</div><div class="thread" id="threadEl"><div style="color:var(--ink-faint);font-size:13px;">กำลังโหลด...</div></div></div>' +
-                '<div class="composer">' +
-                    '<textarea id="replyText" placeholder="พิมพ์ข้อความตอบกลับ..."></textarea>' +
+                '<div class="composer' + (isFixing ? ' is-fixing' : '') + '">' +
+                    composerNote +
+                    '<textarea id="replyText" placeholder="' + (isFixing ? 'อธิบายสั้นๆ ว่าแก้อะไรไปบ้าง...' : 'พิมพ์ข้อความตอบกลับ...') + '"></textarea>' +
                     '<div class="composer-row">' +
                         '<label class="attach-btn">' +
                             '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>' +
                             '<span id="replyFileLabel">แนบไฟล์</span>' +
                             '<input type="file" id="replyFile" hidden>' +
                         '</label>' +
-                        '<button class="btn btn-primary" id="replySendBtn" type="button">ส่งคำตอบ</button>' +
+                        '<button class="btn btn-primary" id="replySendBtn" type="button">' + sendLabel + '</button>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
+            // ปุ่มของผู้ตรวจอยู่ล่างสุด — อ่านงานกับกระทู้จบก่อน ค่อยตัดสินใจเปลี่ยนสถานะ/ส่งต่อ
+            statusSwitchHtml +
+            reassignHtml +
         '</div>';
 
     // wire actions
@@ -413,9 +413,6 @@ function openDetail(id) {
             btn.addEventListener('click', function () { changeStatus(d.id, btn.getAttribute('data-set')); });
         });
     }
-    var resubmitBtn = document.getElementById('resubmitBtn');
-    if (resubmitBtn) resubmitBtn.addEventListener('click', function () { resubmitSubmission(d.id); });
-
     var reassignBtn = document.getElementById('reassignBtn');
     if (reassignBtn) reassignBtn.addEventListener('click', function () { reassignSubmission(d.id); });
 
@@ -423,7 +420,7 @@ function openDetail(id) {
     replyFile.addEventListener('change', function () {
         document.getElementById('replyFileLabel').textContent = replyFile.files.length ? cleanFileName(replyFile.files[0].name) : 'แนบไฟล์';
     });
-    document.getElementById('replySendBtn').addEventListener('click', function () { submitReply(d.id); });
+    document.getElementById('replySendBtn').addEventListener('click', function () { submitReply(d.id, isFixing); });
 
     loadAndRenderThread(d.id);
     renderQueueNote(d);
@@ -431,30 +428,6 @@ function openDetail(id) {
     document.getElementById('listView').classList.add('hidden');
     document.getElementById('detailView').classList.remove('hidden');
     window.scrollTo(0, 0);
-}
-
-// ผู้ส่งกดส่งงานที่แก้แล้วกลับเข้าคิว — สถานะกลับเป็น "รอดำเนินการ" และไปต่อท้ายแถว
-// (server เป็นคนตั้ง queuedAt ใหม่ + นับ revision ให้เอง ฝั่งนี้ส่งแค่ status)
-function resubmitSubmission(id) {
-    var btn = document.getElementById('resubmitBtn');
-    if (!confirm('ส่งงานที่แก้แล้วกลับเข้าคิว?\n\nงานจะไปต่อท้ายคิวของผู้ตรวจ และผู้ตรวจจะเห็นว่าเป็นงานที่ส่งแก้กลับมา\n\nอย่าลืมแนบไฟล์ที่แก้แล้วในกระทู้ก่อน')) return;
-
-    btn.disabled = true;
-    _savingInProgress = true;
-    pb.collection('submissions').update(id, { status: 'queue' }, { requestKey: 'resubmit' })
-        .then(function () {
-            _savingInProgress = false;
-            return refreshList();
-        })
-        .then(function () {
-            if (listState.openId) openDetail(listState.openId);   // วาดหน้า detail ใหม่ให้ปุ่มหาย
-        })
-        .catch(function (err) {
-            _savingInProgress = false;
-            btn.disabled = false;
-            console.error('ส่งกลับเข้าคิวไม่สำเร็จ:', err);
-            alert(apiErrorMessage(err, 'ส่งกลับเข้าคิวไม่สำเร็จ'));
-        });
 }
 
 // ส่งต่องานให้ผู้ตรวจคนอื่น — พอส่งต่อแล้วเราจะหลุดสิทธิ์ทันที (list rule ไม่เห็นเรื่องนี้อีก)
@@ -626,10 +599,14 @@ function showNewError(msg) {
 }
 
 // ---------- reply ----------
-function submitReply(submissionId) {
+// alsoResubmit = งานถูกตีกลับอยู่ และคนกดคือผู้ส่ง → ส่งคำตอบเสร็จแล้วดันงานกลับเข้าคิวต่อเลย
+function submitReply(submissionId, alsoResubmit) {
     var text = document.getElementById('replyText').value.trim();
     var fileInput = document.getElementById('replyFile');
-    if (!text && !fileInput.files.length) return; // ไม่มีอะไรจะส่ง
+    if (!text && !fileInput.files.length) {
+        if (alsoResubmit) alert('แนบไฟล์ที่แก้แล้ว หรือพิมพ์อธิบายสั้นๆ ก่อนส่ง');
+        return; // ไม่มีอะไรจะส่ง
+    }
 
     var fd = new FormData();
     fd.append('submission', submissionId);
@@ -641,17 +618,30 @@ function submitReply(submissionId) {
     btn.disabled = true;
     _savingInProgress = true;
     pb.collection('submission_replies').create(fd, { requestKey: 'new-reply' }).then(function () {
-        _savingInProgress = false;
-        btn.disabled = false;
         document.getElementById('replyText').value = '';
         fileInput.value = '';
         document.getElementById('replyFileLabel').textContent = 'แนบไฟล์';
-        loadAndRenderThread(submissionId);
+
+        if (!alsoResubmit) {
+            _savingInProgress = false;
+            btn.disabled = false;
+            loadAndRenderThread(submissionId);
+            return;
+        }
+        // ส่งคำตอบเข้ากระทู้แล้ว → ดันงานกลับเข้าคิว (server ตั้ง queuedAt ใหม่ + นับ revision ให้เอง)
+        return pb.collection('submissions').update(submissionId, { status: 'queue' }, { requestKey: 'resubmit' })
+            .then(function () {
+                _savingInProgress = false;
+                return refreshList();
+            })
+            .then(function () {
+                if (listState.openId) openDetail(listState.openId);   // วาดใหม่ ปุ่มกลับเป็น "ส่งคำตอบ"
+            });
     }).catch(function (err) {
         _savingInProgress = false;
         btn.disabled = false;
         console.error('ส่งคำตอบไม่สำเร็จ:', err);
-        alert('ส่งคำตอบไม่สำเร็จ');
+        alert(apiErrorMessage(err, 'ส่งคำตอบไม่สำเร็จ'));
     });
 }
 
