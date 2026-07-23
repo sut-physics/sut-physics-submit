@@ -31,6 +31,9 @@ function loadSubmissions() {
         SUBMISSIONS = r[0];
         QUEUE_ROWS = r[1];
     }).catch(function (err) {
+        // โดนยกเลิกเพราะมีการโหลดรอบใหม่ทับ (realtime ยิงถี่ๆ) — ไม่ใช่ error จริง
+        // **ห้ามล้างข้อมูลทิ้ง** ไม่งั้นรายการที่รอบใหม่โหลดมาสำเร็จแล้วจะถูกลบหายไปด้วย
+        if (err && err.isAbort) return;
         console.error('โหลด submissions ไม่สำเร็จ:', err);
         SUBMISSIONS = [];
         QUEUE_ROWS = [];
@@ -64,7 +67,7 @@ function adminRecipientFilter() {
 function loadAdmins() {
     pb.collection('users').getFullList({ filter: adminRecipientFilter(), sort: 'displayName', requestKey: 'adminsCache' })
         .then(function (records) { ADMINS = records; })
-        .catch(function (err) { console.error('โหลดรายชื่อ admin ไม่สำเร็จ:', err); });
+        .catch(function (err) { if (err && err.isAbort) return; console.error('โหลดรายชื่อ admin ไม่สำเร็จ:', err); });
 }
 
 // ---------- helpers ----------
@@ -511,7 +514,7 @@ function loadAndRenderThread(submissionId) {
                     fileHtml +
                 '</div></div>';
         }).join('');
-    }).catch(function (err) { console.error('โหลดการตอบกลับไม่สำเร็จ:', err); });
+    }).catch(function (err) { if (err && err.isAbort) return; console.error('โหลดการตอบกลับไม่สำเร็จ:', err); });
 }
 
 // ---------- queue feature ----------
@@ -532,7 +535,7 @@ function renderQueueNote(d) {
         el.textContent = res.totalItems > 0
             ? 'มีงานอยู่ก่อนหน้าคุณอีก ' + res.totalItems + ' รายการในคิวของผู้รับคนนี้'
             : 'งานของคุณอยู่ต้นคิวของผู้รับคนนี้';
-    }).catch(function (err) { console.error('นับคิวไม่สำเร็จ:', err); });
+    }).catch(function (err) { if (err && err.isAbort) return; console.error('นับคิวไม่สำเร็จ:', err); });
 }
 
 function getAdminQueueCount(adminId) {
