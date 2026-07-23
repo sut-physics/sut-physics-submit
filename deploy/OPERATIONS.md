@@ -90,6 +90,15 @@ VM ไม่มี credential ของ NAS เลย → VM โดนยึด�
   /var/backups/submit/db          → /srv/submit-backup/db
   /var/backups/submit/storage-enc → /srv/submit-backup/storage
   ```
+  > ⚠️ **ห้าม `rm -rf` โฟลเดอร์ต้นทางของ bind mount** — mount จะยังชี้ไป inode เก่าที่ถูกลบ
+  > ผลคือต้นทางมีไฟล์ครบ แต่ฝั่งที่ NAS มองเห็นเป็น **ศูนย์ไฟล์ โดยไม่มีอะไรฟ้อง**
+  > (เจอจริง 23 ก.ค.) ถ้าจำเป็นต้องล้าง ให้ลบ*ไฟล์ข้างใน*แทน หรือ `umount` แล้ว `mount` ใหม่:
+  > ```bash
+  > sudo umount /srv/submit-backup/storage && sudo mount /srv/submit-backup/storage
+  > sudo find /srv/submit-backup/storage -name '*.age' | wc -l   # ต้องไม่เป็น 0
+  > ```
+- โครงในมิเรอร์: `storage-enc/<ชื่อผู้ส่ง>/<sha256 ของ path>.age`
+  แยกโฟลเดอร์ตามคนส่งเพื่อให้หาง่าย · ชื่อ**ไฟล์**ยังเป็น hash (ชื่อจริงบอกหัวข้องานได้)
 - กุญแจของ NAS ใน `~ubuntu/.ssh/authorized_keys` ล็อกด้วย
   `restrict,command="/usr/bin/rrsync -ro /srv/submit-backup"`
   → ทดสอบแล้ว: อ่าน backup ได้ · รันคำสั่งอื่นไม่ได้ · เขียนกลับไม่ได้ · ออกนอกโฟลเดอร์ไม่ได้
