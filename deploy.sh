@@ -241,6 +241,25 @@ if has verify; then
     WANTV=$(cat css/*.css js/*.js | sha256sum | head -c 8)
     [ "$LIVEV" = "$WANTV" ] && ok "?v= บนเว็บตรงกับเนื้อไฟล์ ($LIVEV)" || warn "?v= บนเว็บ=$LIVEV แต่เนื้อไฟล์=$WANTV"
 
+    # กุญแจไข backup — จุดที่เปราะที่สุดของระบบ หายแล้ว backup ทั้งกองใช้ไม่ได้ถาวร
+    if [ -n "${BACKUP_KEY_FILE:-}" ] && [ -f "$BACKUP_KEY_FILE" ]; then
+        if command -v age >/dev/null; then
+            # ลองถอดของจริงจาก VM — รู้ตั้งแต่วันนี้ว่ากุญแจยังใช้ได้ ไม่ใช่ไปรู้ตอนจะกู้
+            TMPK=$(mktemp -d); trap 'rm -rf "$TMPK"' EXIT
+            if rsync -azL -e "ssh -i $VM_SSH_KEY" "$VM_USER@$VM_HOST:/srv/submit-backup/db/latest.tar.gz.age" "$TMPK/" 2>/dev/null \
+               && age -d -i "$BACKUP_KEY_FILE" "$TMPK/latest.tar.gz.age" 2>/dev/null | tar -tzf - >/dev/null 2>&1; then
+                ok "กุญแจไข backup ถอด snapshot ล่าสุดได้จริง"
+            else
+                echo "  ${C_ERR}✗ ถอด backup ล่าสุดด้วยกุญแจใน $BACKUP_KEY_FILE ไม่ได้${C_OFF}"; FAIL=1
+            fi
+            find "$TMPK" -type f -delete 2>/dev/null; rm -rf "$TMPK"; trap - EXIT
+        else
+            ok "มีไฟล์กุญแจไข backup อยู่ ${C_DIM}(ข้ามการทดสอบถอดรหัส — เครื่องนี้ไม่มีคำสั่ง age)${C_OFF}"
+        fi
+    else
+        warn "ไม่พบกุญแจไข backup ที่ ${BACKUP_KEY_FILE:-<ไม่ได้ตั้ง BACKUP_KEY_FILE>} — ถ้าไม่มีสำเนาที่อื่น backup ทั้งหมดกู้ไม่ได้"
+    fi
+
     echo
     [ "${FAIL:-0}" = "1" ] && die "มีบางอย่างไม่ผ่าน — ดูบรรทัดสีแดงด้านบน"
     echo "${C_OK}เรียบร้อย — ระบบใช้งานได้ปกติ${C_OFF}  $PB_URL"
