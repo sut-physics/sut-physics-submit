@@ -53,14 +53,41 @@ function refreshPendingCount() {
     }).catch(function (err) { console.error('นับรายการรออนุมัติไม่สำเร็จ:', err); });
 }
 
-function approveRowHtml(id, kind, name, username, note) {
-    return '<div class="approve-row" data-id="' + id + '" data-kind="' + kind + '">' +
+// แถวสมาชิกหนึ่งคน — ปุ่มที่ขึ้นต่างกันตามสถานะ/สิทธิ์ของคนนั้น
+// ตัวเองไม่มีปุ่มอะไรเลย (server ห้ามแก้สิทธิ์/สถานะตัวเองอยู่แล้ว จะได้ไม่ต้องกดแล้วเจอ error)
+function memberRowHtml(u) {
+    var name = u.displayName || u.username;
+    var isSelf = u.id === currentUser.id;
+    var badges = '';
+    if (u.role === 'admin')      badges += '<span class="mb-tag admin">ผู้ดูแล</span>';
+    if (u.status === 'pending')  badges += '<span class="mb-tag pending">รออนุมัติ</span>';
+    if (u.status === 'disabled') badges += '<span class="mb-tag disabled">ปิดใช้งาน</span>';
+    if (isSelf)                  badges += '<span class="mb-tag self">คุณ</span>';
+
+    var btns = '';
+    if (!isSelf) {
+        if (u.status === 'pending') {
+            btns += '<button class="btn btn-primary ar-btn" data-act="approve" data-id="' + u.id + '">อนุมัติ</button>';
+        }
+        if (u.status === 'disabled') {
+            btns += '<button class="btn ar-btn" data-act="enable" data-id="' + u.id + '">เปิดใช้งาน</button>';
+        } else if (u.status === 'approved') {
+            btns += '<button class="btn ar-btn" data-act="disable" data-id="' + u.id + '">ปิดใช้งาน</button>';
+        }
+        if (u.role === 'admin') {
+            btns += '<button class="btn ar-btn" data-act="demote" data-id="' + u.id + '">ถอดผู้ดูแล</button>';
+        } else {
+            btns += '<button class="btn ar-btn" data-act="promote" data-id="' + u.id + '">ตั้งเป็นผู้ดูแล</button>';
+        }
+    }
+
+    return '<div class="approve-row" data-id="' + u.id + '">' +
         '<div class="ar-who">' +
             '<span class="avatar">' + escapeHtml(initials(name)) + '</span>' +
-            '<div><div class="ar-name">' + escapeHtml(name) + '</div>' +
-            '<div class="ar-user">@' + escapeHtml(username) + (note ? ' · ' + escapeHtml(note) : '') + '</div></div>' +
+            '<div><div class="ar-name">' + escapeHtml(name) + badges + '</div>' +
+            '<div class="ar-user">@' + escapeHtml(u.username || '') + '</div></div>' +
         '</div>' +
-        '<button class="btn btn-primary ar-btn" data-id="' + id + '" data-kind="' + kind + '">อนุมัติ</button>' +
+        '<div class="mb-actions">' + btns + '</div>' +
         '</div>';
 }
 
@@ -92,22 +119,26 @@ function openApproveModal() {
 // โหลด (หรือโหลดซ้ำ) ทั้งสองรายการ — สมาชิกรออนุมัติ + คำขอตั้งรหัส
 function loadPendingLists() {
     return Promise.all([
-        pb.collection('users').getFullList({ filter: 'status = "pending"', sort: 'created', requestKey: 'listPendingUsers' }),
+        pb.collection('users').getFullList({ sort: 'displayName', requestKey: 'listAllUsers' }),
         pb.collection('password_resets').getFullList({ filter: activeResetFilter(), sort: 'created', expand: 'user', requestKey: 'listResets' })
     ]).then(function (r) {
         var users = r[0], resets = r[1];
 
-        setTabCount('tabCountMembers', users.length);
+        // ป้ายตัวเลข = จำนวนคนที่ "ต้องทำอะไรสักอย่าง" (รออนุมัติ) ไม่ใช่จำนวนสมาชิกทั้งหมด
+        var pending = users.filter(function (u) { return u.status === 'pending'; });
+        setTabCount('tabCountMembers', pending.length);
         setTabCount('tabCountPassword', resets.length);
 
-        document.getElementById('tabPanelMembers').innerHTML = users.length
-            ? users.map(function (u) {
-                return approveRowHtml(u.id, 'user', u.displayName || u.username, u.username || '', '');
-            }).join('')
-            : '<div class="empty" style="padding:26px 10px;">ไม่มีสมาชิกรออนุมัติ</div>';
+        // รออนุมัติขึ้นก่อนเสมอ แล้วค่อยเรียงคนที่เหลือ
+        var sorted = pending.concat(users.filter(function (u) { return u.status !== 'pending'; }));
+        document.getElementById('tabPanelMembers').innerHTML =
+            (pending.length ? '' : '<div class="pw-chips-empty">ไม่มีสมาชิกรออนุมัติ — ด้านล่างคือสมาชิกทั้งหมด</div>') +
+            sorted.map(memberRowHtml).join('');
 
         Array.prototype.forEach.call(document.querySelectorAll('#tabPanelMembers .ar-btn'), function (b) {
-            b.addEventListener('click', function () { approveUser(b.getAttribute('data-id'), b); });
+            b.addEventListener('click', function () {
+                memberAction(b.getAttribute('data-act'), b.getAttribute('data-id'), b);
+            });
         });
 
         renderPwRequestChips(resets);
@@ -144,19 +175,35 @@ function renderPwRequestChips(resets) {
     });
 }
 
-function approveUser(id, btn) {
+// อนุมัติ / เปิด-ปิดใช้งาน / ตั้ง-ถอดผู้ดูแล — ทุกอย่างบังคับซ้ำที่ server ด้วย pb_hooks
+var MEMBER_ACTIONS = {
+    approve: { patch: { status: 'approved' } },
+    enable:  { patch: { status: 'approved' } },
+    disable: { patch: { status: 'disabled' },
+               confirm: 'ปิดใช้งานบัญชีนี้?\n\nเจ้าตัวจะถูกเตะออกจากระบบทันทีและ login ไม่ได้อีก\nงานเก่ายังอยู่ครบ เปิดใช้งานกลับได้ทุกเมื่อ' },
+    promote: { patch: { role: 'admin' },
+               confirm: 'ตั้งให้เป็นผู้ดูแล?\n\nจะรับงานได้ อนุมัติสมาชิก ตั้งรหัสให้คนอื่น และตั้งผู้ดูแลคนอื่นต่อได้' },
+    demote:  { patch: { role: 'user' },
+               confirm: 'ถอดสิทธิ์ผู้ดูแล?\n\nงานที่ค้างอยู่กับเขาจะยังอยู่ แต่เขาจะไม่ได้อยู่ในรายชื่อผู้รับอีก' }
+};
+
+function memberAction(act, id, btn) {
+    var cfg = MEMBER_ACTIONS[act];
+    if (!cfg) return;
+    if (cfg.confirm && !confirm(cfg.confirm)) return;
+
     btn.disabled = true;
-    pb.collection('users').update(id, { status: 'approved' })
+    pb.collection('users').update(id, cfg.patch, { requestKey: 'memberAction' })
         .then(function () {
-            var row = document.querySelector('.approve-row[data-id="' + id + '"]');
-            if (row) row.parentNode.removeChild(row);
-            setTabCount('tabCountMembers', document.querySelectorAll('#tabPanelMembers .approve-row').length);
+            loadPendingLists();      // โหลดใหม่ทั้งรายการ — ปุ่มของแถวนั้นต้องเปลี่ยนตามสถานะใหม่
             refreshPendingCount();
+            loadSetPwUsers();        // รายชื่อในหน้าตั้งรหัสก็เปลี่ยนตาม (admin ตั้งรหัสให้กันไม่ได้)
+            if (typeof loadAdmins === 'function') loadAdmins();   // dropdown ผู้รับ/ส่งต่อ
         })
         .catch(function (err) {
             btn.disabled = false;
-            console.error('อนุมัติไม่สำเร็จ:', err);
-            alert('อนุมัติไม่สำเร็จ');
+            console.error('ทำรายการไม่สำเร็จ:', err);
+            alert(apiErrorMessage(err, 'ทำรายการไม่สำเร็จ'));
         });
 }
 

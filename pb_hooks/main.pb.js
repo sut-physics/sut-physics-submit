@@ -24,31 +24,91 @@ onRecordUpdateRequest((e) => {
     const isAdmin = !!auth && auth.get("role") === "admin"
     const editingSelf = !!auth && auth.id === rec.id
 
-    // (1) role เปลี่ยนได้เฉพาะ superuser
-    if (rec.get("role") !== orig.get("role")) {
-        throw new ForbiddenError("ไม่มีสิทธิ์เปลี่ยน role")
-    }
-
     if (editingSelf) {
-        // (2) ห้ามอนุมัติตัวเอง
+        // (1) ห้ามยกระดับ/ลดระดับตัวเอง และห้ามอนุมัติตัวเอง
+        // ทั้งสองอย่างต้องให้ "คนอื่น" เป็นคนกด ไม่งั้นด่านอนุมัติไม่มีความหมาย
+        if (rec.get("role") !== orig.get("role")) {
+            throw new ForbiddenError("เปลี่ยนสิทธิ์ตัวเองไม่ได้ ต้องให้ผู้ดูแลคนอื่นเปลี่ยนให้")
+        }
         if (rec.get("status") !== orig.get("status")) {
-            throw new ForbiddenError("อนุมัติตัวเองไม่ได้ ต้องให้ผู้ดูแลอนุมัติ")
+            throw new ForbiddenError("เปลี่ยนสถานะบัญชีตัวเองไม่ได้ ต้องให้ผู้ดูแลเปลี่ยนให้")
         }
     } else {
-        // (3) แก้ผู้ใช้อื่นได้เฉพาะ admin และเฉพาะ field status
+        // (2) แก้ผู้ใช้อื่นได้เฉพาะ admin
         if (!isAdmin) {
             throw new ForbiddenError("ไม่มีสิทธิ์แก้ไขผู้ใช้อื่น")
         }
+        // (3) แก้ได้เฉพาะ role กับ status — field อ่อนไหวอื่นห้ามแตะ (กันยึดบัญชีด้วยการเปลี่ยนอีเมล)
         const guarded = ["username", "email", "verified", "emailVisibility"]
         for (let i = 0; i < guarded.length; i++) {
             if (rec.get(guarded[i]) !== orig.get(guarded[i])) {
-                throw new ForbiddenError("ผู้ดูแลแก้ผู้ใช้อื่นได้เฉพาะสถานะอนุมัติ")
+                throw new ForbiddenError("ผู้ดูแลแก้ผู้ใช้อื่นได้เฉพาะสิทธิ์กับสถานะบัญชี")
             }
+        }
+        // (4) ค่าที่ใส่ต้องเป็นค่าที่ระบบรู้จักเท่านั้น (field เป็น text ธรรมดา ไม่ใช่ select
+        //     ถ้าไม่เช็คตรงนี้ ใส่ role อะไรก็ได้ แล้วเงื่อนไขอย่าง `role = "admin"` จะเพี้ยน)
+        const role = rec.get("role")
+        const status = rec.get("status")
+        if (role !== "user" && role !== "admin") {
+            throw new ForbiddenError("role ต้องเป็น user หรือ admin เท่านั้น")
+        }
+        if (status !== "pending" && status !== "approved" && status !== "disabled") {
+            throw new ForbiddenError("status ต้องเป็น pending / approved / disabled เท่านั้น")
+        }
+
+        // (5) ปิดใช้งาน = ต้องเตะออกจากระบบทันที
+        // `authRule` กันได้แค่การ login ครั้งใหม่ — token ที่ออกไปแล้วยังใช้ได้จนหมดอายุ (นานเป็นสัปดาห์)
+        // ถ้าไม่ทำตรงนี้ คนที่เพิ่งถูกปิดใช้งานยังเปิดแท็บเดิมทำงานต่อได้เหมือนไม่มีอะไรเกิดขึ้น
+        // refreshTokenKey() สุ่ม tokenKey ใหม่ → token เก่าทุกใบใช้ไม่ได้ทันที
+        if (status === "disabled" && orig.get("status") !== "disabled") {
+            rec.refreshTokenKey()
         }
     }
 
     e.next()
 }, "users")
+
+
+// ============================================================
+// ส่งต่องานให้ผู้ตรวจคนอื่น (reassign)
+//
+// `submissions.updateRule` เปิดให้เฉพาะ recipient ปัจจุบันแก้ได้อยู่แล้ว → คนอื่นส่งต่อไม่ได้
+// hook นี้เติมเงื่อนไขที่ rule เขียนไม่ได้: ผู้รับคนใหม่ต้องเป็น admin จริง และต้องไม่ใช่ผู้ส่งเอง
+// (ถ้าปล่อยให้ส่งต่อไปหาใครก็ได้ จะกลายเป็นช่องยัดงานให้ user ธรรมดาที่ไม่มีสิทธิ์ตรวจ
+//  หรือส่งกลับไปหาเจ้าของงานเองจนกลายเป็นตรวจงานตัวเอง)
+// ============================================================
+onRecordUpdateRequest((e) => {
+    if (e.hasSuperuserAuth()) {
+        e.next()
+        return
+    }
+
+    const rec = e.record
+    const orig = rec.original()
+
+    if (rec.get("recipient") !== orig.get("recipient")) {
+        const newId = rec.get("recipient")
+
+        if (newId === rec.get("sender")) {
+            throw new ForbiddenError("ส่งต่อให้เจ้าของงานเองไม่ได้")
+        }
+
+        let target
+        try {
+            target = $app.findRecordById("users", newId)
+        } catch (err) {
+            throw new BadRequestError("ไม่พบบัญชีผู้รับคนใหม่")
+        }
+        if (target.get("role") !== "admin") {
+            throw new ForbiddenError("ส่งต่อได้เฉพาะให้ผู้ดูแล (ผู้ตรวจ) เท่านั้น")
+        }
+        if (target.get("status") !== "approved") {
+            throw new ForbiddenError("บัญชีผู้รับคนใหม่ยังไม่ได้รับอนุมัติ หรือถูกปิดใช้งานอยู่")
+        }
+    }
+
+    e.next()
+}, "submissions")
 
 
 // ============================================================

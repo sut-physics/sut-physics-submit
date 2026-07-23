@@ -290,6 +290,21 @@ function openDetail(id) {
         statusSwitchHtml = '<div class="status-switch"><span class="s-label">เปลี่ยนสถานะ</span>' + segHtml + '</div>';
     }
 
+    // ส่งต่อให้ผู้ตรวจคนอื่น — เฉพาะ recipient ปัจจุบัน (server บังคับซ้ำด้วย updateRule + hook)
+    // ADMINS ไม่มีตัวเอง (adminRecipientFilter ตัดออก) → รายการที่ขึ้นคือคนอื่นล้วน
+    var reassignHtml = '';
+    if (isRecipient && ADMINS.length) {
+        reassignHtml = '<div class="status-switch"><span class="s-label">ส่งต่อให้</span>' +
+            '<select id="reassignSelect" class="auth-input" style="max-width:260px;margin:0;">' +
+                '<option value="">— เลือกผู้ตรวจคนใหม่ —</option>' +
+                ADMINS.map(function (a) {
+                    return '<option value="' + a.id + '">' + escapeHtml(displayName(a)) + '</option>';
+                }).join('') +
+            '</select>' +
+            '<button class="btn" id="reassignBtn" type="button">ส่งต่อ</button>' +
+            '</div>';
+    }
+
     document.getElementById('detailView').innerHTML =
         '<button class="back-link" id="backBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><polyline points="15 18 9 12 15 6"></polyline></svg>กลับไปหน้ารายการ</button>' +
         '<div class="doc-card">' +
@@ -309,6 +324,7 @@ function openDetail(id) {
                 '<div class="stamp ' + st.cls + '"><span class="txt">' + st.label + '</span></div>' +
             '</div>' +
             statusSwitchHtml +
+            reassignHtml +
             '<div class="doc-body">' +
                 '<div><div class="field-label">รายละเอียด</div><div class="desc-text">' + (d.description ? escapeHtml(d.description) : '<span style="color:var(--ink-faint)">— ไม่มีรายละเอียด —</span>') + '</div></div>' +
                 '<div><div class="field-label">ไฟล์ที่แนบมา</div>' + fileHtml + '</div>' +
@@ -335,6 +351,9 @@ function openDetail(id) {
             btn.addEventListener('click', function () { changeStatus(d.id, btn.getAttribute('data-set')); });
         });
     }
+    var reassignBtn = document.getElementById('reassignBtn');
+    if (reassignBtn) reassignBtn.addEventListener('click', function () { reassignSubmission(d.id); });
+
     var replyFile = document.getElementById('replyFile');
     replyFile.addEventListener('change', function () {
         document.getElementById('replyFileLabel').textContent = replyFile.files.length ? cleanFileName(replyFile.files[0].name) : 'แนบไฟล์';
@@ -347,6 +366,33 @@ function openDetail(id) {
     document.getElementById('listView').classList.add('hidden');
     document.getElementById('detailView').classList.remove('hidden');
     window.scrollTo(0, 0);
+}
+
+// ส่งต่องานให้ผู้ตรวจคนอื่น — พอส่งต่อแล้วเราจะหลุดสิทธิ์ทันที (list rule ไม่เห็นเรื่องนี้อีก)
+// จึงต้องปิดหน้า detail แล้วโหลดรายการใหม่ ไม่งั้นค้างอยู่หน้าที่กดอะไรก็ 404
+function reassignSubmission(id) {
+    var sel = document.getElementById('reassignSelect');
+    var btn = document.getElementById('reassignBtn');
+    var newId = sel.value;
+    if (!newId) { alert('กรุณาเลือกผู้ตรวจคนใหม่'); return; }
+
+    var name = sel.options[sel.selectedIndex].text;
+    if (!confirm('ส่งต่องานนี้ให้ ' + name + ' ?\n\nหลังส่งต่อแล้วคุณจะไม่เห็นเรื่องนี้อีก')) return;
+
+    btn.disabled = true;
+    _savingInProgress = true;
+    pb.collection('submissions').update(id, { recipient: newId }, { requestKey: 'reassign' })
+        .then(function () {
+            _savingInProgress = false;
+            closeDetail();
+            return refreshList();
+        })
+        .catch(function (err) {
+            _savingInProgress = false;
+            btn.disabled = false;
+            console.error('ส่งต่อไม่สำเร็จ:', err);
+            alert(apiErrorMessage(err, 'ส่งต่อไม่สำเร็จ'));
+        });
 }
 
 function closeDetail() {
