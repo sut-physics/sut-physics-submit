@@ -252,14 +252,6 @@ function revisionBadge(d) {
     return '<span class="rev-badge" title="เคยถูกตีกลับแล้วส่งแก้กลับมา ' + n + ' ครั้ง">แก้ครั้งที่ ' + n + '</span>';
 }
 
-// ช่องคิว: 0 = ถึงคิวเราแล้ว · ตัวเลข = รออีกกี่คิว · — = ไม่อยู่ในคิวแล้ว
-function queueCellHtml(d) {
-    var n = queueAhead(d);
-    if (n === null) return '<div class="qcell qcell-none">—</div>';
-    if (n === 0)    return '<div class="qcell qcell-now">ถึงคิวแล้ว</div>';
-    return '<div class="qcell tabular">รออีก <b>' + n + '</b> คิว</div>';
-}
-
 function renderRows() {
     var rowsEl = document.getElementById('rows');
     var list = SUBMISSIONS.filter(function (d) {
@@ -300,7 +292,6 @@ function renderRows() {
             '<div class="date tabular">' + formatDate(d.created) + '<span class="time">' + formatTime(d.created) + '</span></div>' +
             '<div class="topic">' + escapeHtml(d.topic) + revisionBadge(d) + '<span class="code">' + deriveCode(d) + '</span></div>' +
             '<div class="who">' + escapeHtml(prefix + cp.name) + '</div>' +
-            queueCellHtml(d) +
             dlHtml +
             '<div class="chip ' + st.cls + '"><span class="dot"></span>' + st.label + '</div>' +
             '<div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"></polyline></svg></div>' +
@@ -494,21 +485,13 @@ function loadAndRenderThread(submissionId) {
 function renderQueueNote(d) {
     var el = document.getElementById('queueNote');
     if (!el) return;
-    // แสดงเฉพาะฝั่งผู้ส่ง และเฉพาะงานที่ยังค้าง (queue/review)
-    if (currentUser.id !== d.sender || (d.status !== 'queue' && d.status !== 'review')) {
-        el.textContent = '';
-        return;
-    }
-    pb.collection('submission_queue').getList(1, 1, {
-        filter: 'recipient = "' + d.recipient + '" && (status = "queue" || status = "review") && created < "' + d.created + '"',
-        skipTotal: false,
-        requestKey: 'queuePosition'
-    }).then(function (res) {
-        if (listState.openId !== d.id) return;
-        el.textContent = res.totalItems > 0
-            ? 'มีงานอยู่ก่อนหน้าคุณอีก ' + res.totalItems + ' รายการในคิวของผู้รับคนนี้'
-            : 'งานของคุณอยู่ต้นคิวของผู้รับคนนี้';
-    }).catch(function (err) { if (err && err.isAbort) return; console.error('นับคิวไม่สำเร็จ:', err); });
+    // ข้อมูลคิวมีไว้บอก "ผู้ส่ง" ว่าต้องรออีกนานแค่ไหน — ผู้ตรวจไม่ต้องเห็น ไม่ได้บังคับให้ทำตามลำดับ
+    // แสดงเฉพาะฝั่งผู้ส่ง และเฉพาะงานที่ยังค้างอยู่ในคิวจริงๆ
+    var n = (currentUser.id === d.sender) ? queueAhead(d) : null;
+    if (n === null) { el.textContent = ''; return; }
+    el.textContent = n > 0
+        ? 'มีงานอยู่ก่อนหน้าคุณอีก ' + n + ' รายการในคิวของผู้รับคนนี้'
+        : 'งานของคุณอยู่ต้นคิวของผู้รับคนนี้';
 }
 
 function getAdminQueueCount(adminId) {

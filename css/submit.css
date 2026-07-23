@@ -46,7 +46,7 @@
 .ledger { border-top: 1px solid var(--line); }
 .row-head, .row {
     display: grid;
-    grid-template-columns: 108px 1fr 150px 106px 128px 142px 30px;
+    grid-template-columns: 108px 1fr 158px 132px 146px 30px;
     gap: 12px; align-items: center;
     padding: 12px 10px; border-bottom: 1px solid var(--line);
 }
@@ -102,12 +102,6 @@
 .chip.returned { color: var(--st-returned); background: var(--st-returned-bg); border-color: var(--st-returned-line); }
 
 .empty { padding: 60px 10px; text-align: center; color: var(--ink-faint); }
-
-/* ช่องคิวก่อนหน้าในตาราง — บอกว่าเหลืออีกกี่คิวถึงจะถึงงานเรา */
-.qcell { font-size: 14px; color: var(--ink-muted); }
-.qcell b { color: var(--ink); font-weight: 700; }
-.qcell-now { color: var(--st-complete); font-weight: 700; }
-.qcell-none { color: var(--ink-faint); }
 
 .rev-badge {
     display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
