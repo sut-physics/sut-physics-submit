@@ -47,6 +47,25 @@
   ตัวที่ใช้จริงคือ `scripts/snapshot-local.sh` (บน VM) + `scripts/nas-pull.sh` (บน NAS))
 - Backup แบบประหยัด (DB snapshot เล็ก + ไฟล์แนบ incremental) — ทดสอบวงจร backup→restore ครบแล้ว
 
+### 🐙 ขึ้น GitHub + auto-deploy แล้ว (23 ก.ค.)
+**repo: https://github.com/sut-physics/sut-physics-submit (private)**
+- push ไฟล์ `index.html`/`css/`/`js/` ขึ้น `main` → **deploy เองภายใน ~15 วินาที** (ทดสอบผ่านแล้ว)
+- **ค่าจริงย้ายมาอยู่ที่ `.env`** (ไม่ขึ้น git) · ต้นแบบ `.env.example` (ขึ้น git)
+  · วิธีดูแลระบบทั้งหมดย้ายมา `deploy/OPERATIONS.md` (ไม่มีค่าจริงสักตัว ใช้ `$VM_HOST` แทน)
+  ⚠️ pattern `.env*` ใน .gitignore กิน `.env.example` ไปด้วย ต้องมี `!.env.example` ต่อท้าย
+- **key ที่ฝากไว้ใน GitHub ไม่ใช่ key ที่เข้า VM ได้เต็มสิทธิ์** — สร้าง user `deploy` (ไม่มี sudo)
+  ล็อก key ด้วย `restrict,command="/usr/local/bin/deploy-frontend.sh"`
+  → secret หลุดก็ทำได้แค่เปลี่ยนไฟล์หน้าเว็บ · เข้า shell ไม่ได้ · อ่าน `pb_data`/ไฟล์แนบไม่ได้ (ทดสอบยิงจริงแล้วทุกเคส)
+  `/opt/pocketbase` เป็น `o+x` (เดินผ่านได้ list ไม่ได้) · `pb_public` เป็น `deploy:pocketbase`
+- Secrets ที่ตั้งไว้: `VM_HOST` `VM_USER=deploy` `VM_SSH_KEY` `PB_URL`
+- token ของ `gh` ต้องมี scope **`workflow`** ไม่งั้น push ไฟล์ใน `.github/workflows/` ไม่ได้
+  (`gh auth refresh -h github.com -s workflow`)
+
+> 🐞 **กับดัก: `rsync -a` เอา permission ของโฟลเดอร์ต้นทางไปทับปลายทางด้วย**
+> ต้นทางมาจาก `mktemp -d` (mode 700) → `pb_public` กลายเป็น 700 → user `pocketbase`
+> เดินเข้าไปอ่านไม่ได้ → **เว็บ 404 ทั้งเว็บ** ทั้งที่ไฟล์อยู่ครบและ `/api/health` ยัง 200
+> แก้ด้วย `rsync -rlt --delete --chmod=D755,F644` (ไม่ใช่ `-a`)
+
 ### 🔐 เข้ารหัส backup แล้ว (23 ก.ค.)
 ไฟล์ที่กองอยู่บน NAS **เปิดไม่ได้ถ้าไม่มีกุญแจไข** — NAS โดนแฮกก็อ่านข้อมูลนิสิตไม่ได้
 - ใช้ `age` แบบกุญแจคู่ · VM ถือแค่ **กุญแจล็อก (public)** ที่ `/opt/pocketbase/scripts/backup-recipient.pub`
