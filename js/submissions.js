@@ -318,17 +318,55 @@ function openDetail(id) {
     var isSender = currentUser.id === d.sender;
     var dl = deadlineInfo(d);
 
-    var fileHtml = d.file
-        ? fileChipHtml(pb.files.getURL(d, d.file), d.file)
-        : '<div style="color:var(--ink-faint);font-size:13px;">ไม่มีไฟล์แนบ</div>';
+    // บล็อกที่ไม่มีข้อมูลไม่ต้องกินพื้นที่ — ถ้าไม่มีทั้งรายละเอียดและไฟล์ ยุบเหลือบรรทัดเดียว
+    // (ของเดิมขึ้น "ไม่มีรายละเอียด" + "ไม่มีไฟล์แนบ" เป็น 2 บล็อกเต็ม ต้องเลื่อนผ่านความว่างเปล่า)
+    var topParts = '';
+    if (d.description) {
+        topParts += '<div><div class="field-label">รายละเอียด</div>' +
+                    '<div class="desc-text">' + escapeHtml(d.description) + '</div></div>';
+    }
+    if (d.file) {
+        topParts += '<div><div class="field-label">ไฟล์ที่แนบมา</div>' +
+                    fileChipHtml(pb.files.getURL(d, d.file), d.file) + '</div>';
+    }
+    if (!topParts) topParts = '<div class="doc-empty">ไม่มีรายละเอียด · ไม่มีไฟล์แนบ</div>';
 
-    // segment เปลี่ยนสถานะ — เฉพาะ recipient ของเรื่องนี้เท่านั้น
-    var statusSwitchHtml = '';
+    // ---------- กล่องตัดสินของผู้ตรวจ (เห็นเฉพาะ recipient ของเรื่องนี้) ----------
+    // แยก "สถานะปัจจุบัน" ออกจาก "สิ่งที่กดได้" — ไม่มีปุ่มของสถานะที่เป็นอยู่แล้ว
+    // (กดไปก็ไม่เกิดอะไร ทำให้คนลังเลว่าเข้าใจถูกไหม) สถานะปัจจุบันดูที่ตราวงกลมมุมขวาบนที่เดียว
+    var decideHtml = '';
     if (isRecipient) {
-        var segHtml = Object.keys(STATUS).map(function (key) {
-            return '<button class="seg ' + STATUS[key].cls + (d.status === key ? ' is-active' : '') + '" data-set="' + key + '">' + STATUS[key].label + '</button>';
-        }).join('');
-        statusSwitchHtml = '<div class="status-switch"><span class="s-label">เปลี่ยนสถานะ</span>' + segHtml + '</div>';
+        // 2 ปุ่มหลัก = การตัดสินที่มีผลกับผู้ส่ง · ที่เหลือเป็นตัวเลือกรอง ไม่ควรแย่งสายตา
+        var mainBtns = '';
+        if (d.status !== 'complete') {
+            mainBtns += '<button class="btn decide-btn decide-complete" data-set="complete">' +
+                '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
+                'ตรวจเสร็จแล้ว</button>';
+        }
+        if (d.status !== 'returned') {
+            mainBtns += '<button class="btn decide-btn decide-return" data-set="returned">' +
+                '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>' +
+                'ตีกลับให้แก้ไข</button>';
+        }
+
+        var moreBtns = ['queue', 'review'].filter(function (k) { return k !== d.status; })
+            .map(function (k) { return '<button class="link-btn" data-set="' + k + '">' + STATUS[k].label + '</button>'; })
+            .join('');
+
+        // ส่งต่อให้ผู้ตรวจคนอื่น — ใช้ไม่บ่อย เลยลดเป็นตัวเลือกรองบรรทัดเดียวกับการเปลี่ยนสถานะย่อย
+        // ADMINS ไม่มีตัวเอง (adminRecipientFilter ตัดออก) → รายการที่ขึ้นคือคนอื่นล้วน
+        var reassignPart = ADMINS.length
+            ? '<span class="decide-sep">·</span><span class="decide-reassign">ส่งต่อให้' +
+              '<select id="reassignSelect"><option value="">— เลือกผู้ตรวจ —</option>' +
+              ADMINS.map(function (a) { return '<option value="' + a.id + '">' + escapeHtml(displayName(a)) + '</option>'; }).join('') +
+              '</select><button class="link-btn" id="reassignBtn" type="button">ส่งต่อ</button></span>'
+            : '';
+
+        decideHtml = '<div class="decide-box">' +
+            '<div class="decide-label">ผู้ตรวจตัดสิน</div>' +
+            '<div class="decide-main">' + mainBtns + '</div>' +
+            '<div class="decide-more">' + (moreBtns ? '<span>เปลี่ยนเป็น</span>' + moreBtns : '') + reassignPart + '</div>' +
+            '</div>';
     }
 
     // งานถูกตีกลับ + เราเป็นผู้ส่ง → กล่องตอบกลับด้านล่างกลายเป็น "ส่งงานที่แก้แล้ว"
@@ -340,21 +378,6 @@ function openDetail(id) {
           'แนบไฟล์ที่แก้แล้วหรือพิมพ์อธิบาย แล้วกดปุ่มเดียวจบ — ระบบจะส่งเข้ากระทู้และดันงานกลับเข้าคิวให้อัตโนมัติ</div>'
         : '';
     var sendLabel = isFixing ? 'ส่งงานที่แก้แล้ว' : 'ส่งคำตอบ';
-
-    // ส่งต่อให้ผู้ตรวจคนอื่น — เฉพาะ recipient ปัจจุบัน (server บังคับซ้ำด้วย updateRule + hook)
-    // ADMINS ไม่มีตัวเอง (adminRecipientFilter ตัดออก) → รายการที่ขึ้นคือคนอื่นล้วน
-    var reassignHtml = '';
-    if (isRecipient && ADMINS.length) {
-        reassignHtml = '<div class="status-switch"><span class="s-label">ส่งต่อให้</span>' +
-            '<select id="reassignSelect" class="auth-input" style="max-width:260px;margin:0;">' +
-                '<option value="">— เลือกผู้ตรวจคนใหม่ —</option>' +
-                ADMINS.map(function (a) {
-                    return '<option value="' + a.id + '">' + escapeHtml(displayName(a)) + '</option>';
-                }).join('') +
-            '</select>' +
-            '<button class="btn" id="reassignBtn" type="button">ส่งต่อ</button>' +
-            '</div>';
-    }
 
     document.getElementById('detailView').innerHTML =
         '<button class="back-link" id="backBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><polyline points="15 18 9 12 15 6"></polyline></svg>กลับไปหน้ารายการ</button>' +
@@ -375,8 +398,7 @@ function openDetail(id) {
                 '<div class="stamp ' + st.cls + '"><span class="txt">' + st.label + '</span></div>' +
             '</div>' +
             '<div class="doc-body">' +
-                '<div><div class="field-label">รายละเอียด</div><div class="desc-text">' + (d.description ? escapeHtml(d.description) : '<span style="color:var(--ink-faint)">— ไม่มีรายละเอียด —</span>') + '</div></div>' +
-                '<div><div class="field-label">ไฟล์ที่แนบมา</div>' + fileHtml + '</div>' +
+                topParts +
                 '<hr class="divider">' +
                 '<div><div class="field-label">การตอบกลับ</div><div class="thread" id="threadEl"><div style="color:var(--ink-faint);font-size:13px;">กำลังโหลด...</div></div></div>' +
                 '<div class="composer' + (isFixing ? ' is-fixing' : '') + '">' +
@@ -393,14 +415,13 @@ function openDetail(id) {
                 '</div>' +
             '</div>' +
             // ปุ่มของผู้ตรวจอยู่ล่างสุด — อ่านงานกับกระทู้จบก่อน ค่อยตัดสินใจเปลี่ยนสถานะ/ส่งต่อ
-            statusSwitchHtml +
-            reassignHtml +
+            decideHtml +
         '</div>';
 
     // wire actions
     document.getElementById('backBtn').addEventListener('click', closeDetail);
     if (isRecipient) {
-        Array.prototype.forEach.call(document.querySelectorAll('#detailView .seg'), function (btn) {
+        Array.prototype.forEach.call(document.querySelectorAll('#detailView [data-set]'), function (btn) {
             btn.addEventListener('click', function () { changeStatus(d.id, btn.getAttribute('data-set')); });
         });
     }

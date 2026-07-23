@@ -154,20 +154,39 @@
 .stamp.complete { color: var(--st-complete); border: 2px solid var(--st-complete); }
 .stamp.returned { color: var(--st-returned); border: 2px solid var(--st-returned); }
 
-.status-switch {
-    display: flex; gap: 6px; padding: 16px 26px; border-top: 1px solid var(--line);
-    background: var(--surface-2); flex-wrap: wrap;
+/* ---------- กล่องตัดสินของผู้ตรวจ (ล่างสุดของหน้า) ---------- */
+.decide-box { padding: 18px 26px 20px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.decide-label {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 12px;
 }
-.status-switch .s-label { font-size: 14.5px; color: var(--ink-faint); align-self: center; margin-right: 4px; }
-.seg {
+.decide-main { display: flex; gap: 10px; flex-wrap: wrap; }
+.decide-btn { padding: 10px 18px; font-size: 15px; font-weight: 700; }
+.decide-complete { border-color: var(--st-complete); background: var(--st-complete); color: #fff; }
+.decide-complete:hover { background: var(--st-complete); filter: brightness(1.07); }
+.decide-return { border-color: var(--st-returned); background: var(--st-returned); color: #fff; }
+.decide-return:hover { background: var(--st-returned); filter: brightness(1.07); }
+
+/* ตัวเลือกรอง — ใช้ไม่บ่อย ทำให้เบาลงไม่ให้แย่งสายตาจาก 2 ปุ่มหลัก */
+.decide-more {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-top: 14px; font-size: 13.5px; color: var(--ink-faint);
+}
+.decide-more:empty { display: none; }
+.link-btn {
+    background: none; border: none; padding: 2px 0;
+    color: var(--accent); font: inherit; font-size: 13.5px; font-weight: 600;
+    text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+.link-btn:hover { filter: brightness(1.2); }
+.decide-sep { color: var(--line-strong); margin: 0 4px; }
+.decide-reassign { display: inline-flex; align-items: center; gap: 8px; }
+.decide-reassign select {
     border: 1px solid var(--line-strong); background: var(--surface);
-    padding: 6px 12px; border-radius: 999px; font-size: 14.5px; font-weight: 600; color: var(--ink-muted);
+    border-radius: 7px; padding: 5px 8px; font-size: 13.5px; color: var(--ink);
 }
-.seg:hover { background: var(--surface-2); }
-.seg.is-active.queue    { background: var(--st-queue-bg);    border-color: var(--st-queue-line);    color: var(--st-queue); }
-.seg.is-active.review   { background: var(--st-review-bg);   border-color: var(--st-review-line);   color: var(--st-review); }
-.seg.is-active.complete { background: var(--st-complete-bg); border-color: var(--st-complete-line); color: var(--st-complete); }
-.seg.is-active.returned { background: var(--st-returned-bg); border-color: var(--st-returned-line); color: var(--st-returned); }
+
+.doc-empty { color: var(--ink-faint); font-size: 14px; }
 
 .doc-body { padding: 22px 26px; display: flex; flex-direction: column; gap: 20px; }
 .desc-text { font-size: 16.5px; color: var(--ink); white-space: pre-wrap; line-height: 1.75; }
