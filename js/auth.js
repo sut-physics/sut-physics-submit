@@ -205,7 +205,9 @@ function showApp() {
 // เส้นทางนี้ต้องผ่าน custom route ใน pb_hooks เพราะ PocketBase บังคับขอรหัสเดิม
 // เสมอเวลาเปลี่ยนรหัสผ่านผ่าน API ปกติ (คนที่ลืมรหัสจึงใช้ทางนั้นไม่ได้)
 // ============================================================
-var PWRESET_SENT_KEY = 'submit_pwreset_sent';   // ชื่อที่ยื่นคำขอไว้ (ไว้โชว์ตอนกลับมาเปิดซ้ำ)
+// NB: ไม่จำสถานะ "ส่งคำขอแล้ว" ข้ามรอบ (localStorage) — เพราะเช็คกับ server ไม่ได้
+// (password_resets เป็น admin-only) ถ้าจำไว้จะโชว์คำขอค้างที่หมดอายุ/ถูกจัดการไปแล้ว
+// กลายเป็น phantom ที่ admin ไม่เห็น ทำให้ผู้ใช้งง → เปิดมาเริ่มกรอกชื่อใหม่เสมอ
 
 function forgotError(msg, ok) {
     var el = document.getElementById('forgotError');
@@ -224,15 +226,12 @@ function apiErrorMessage(err, fallback) {
 function openForgotModal() {
     forgotError('');
     document.getElementById('forgotUsernameInput').value = '';
-
-    var sentName = localStorage.getItem(PWRESET_SENT_KEY);
-    document.getElementById('forgotStepRequest').classList.toggle('hidden', !!sentName);
-    document.getElementById('forgotStepSent').classList.toggle('hidden', !sentName);
-    document.getElementById('forgotSubmitBtn').style.display = sentName ? 'none' : '';
-    document.getElementById('forgotPendingName').textContent = sentName || '—';
-
+    // เปิดมาเริ่มที่ขั้นกรอกชื่อเสมอ — ไม่เด้งไปหน้า "ขอแล้ว" จากรอบก่อน (กัน phantom)
+    document.getElementById('forgotStepRequest').classList.remove('hidden');
+    document.getElementById('forgotStepSent').classList.add('hidden');
+    document.getElementById('forgotSubmitBtn').style.display = '';
     document.getElementById('forgotModal').classList.remove('hidden');
-    if (!sentName) document.getElementById('forgotUsernameInput').focus();
+    document.getElementById('forgotUsernameInput').focus();
 }
 
 function closeForgotModal() {
@@ -240,8 +239,7 @@ function closeForgotModal() {
 }
 
 function forgotRestart() {
-    localStorage.removeItem(PWRESET_SENT_KEY);
-    openForgotModal();
+    openForgotModal();   // กลับไปกรอกชื่อใหม่
 }
 
 function submitForgot() {
@@ -253,9 +251,12 @@ function submitForgot() {
     forgotError('');
     pb.send('/api/pwreset/request', { method: 'POST', body: { username: username } })
         .then(function (res) {
-            localStorage.setItem(PWRESET_SENT_KEY, res.displayName || username);
             btn.disabled = false;
-            openForgotModal();      // สลับไปหน้า "ส่งคำขอแล้ว"
+            // สลับไปหน้ายืนยัน "ส่งคำขอแล้ว" — โชว์เฉพาะรอบนี้ ไม่จำข้ามรอบ
+            document.getElementById('forgotPendingName').textContent = res.displayName || username;
+            document.getElementById('forgotStepRequest').classList.add('hidden');
+            document.getElementById('forgotStepSent').classList.remove('hidden');
+            document.getElementById('forgotSubmitBtn').style.display = 'none';
         })
         .catch(function (err) {
             console.error('ขอรีเซ็ตรหัสผ่านไม่สำเร็จ:', err);
