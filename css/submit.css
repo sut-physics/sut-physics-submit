@@ -46,7 +46,7 @@
 .ledger { border-top: 1px solid var(--line); }
 .row-head, .row {
     display: grid;
-    grid-template-columns: 108px 1fr 158px 132px 146px 30px;
+    grid-template-columns: 108px 1fr 158px 132px 72px 146px 30px;
     gap: 12px; align-items: center;
     padding: 12px 10px; border-bottom: 1px solid var(--line);
 }
@@ -109,14 +109,16 @@
     color: var(--st-returned); font-size: 11px; font-weight: 700; vertical-align: middle;
 }
 
-/* ป้ายลำดับคิว — บอกตำแหน่งในคิวของผู้รับ (ทั้งผู้ตรวจและผู้ส่งเห็นเลขเดียวกัน)
+/* คอลัมน์ลำดับคิว — บอกตำแหน่งในคิวของผู้รับ (ทั้งผู้ตรวจและผู้ส่งเห็นเลขเดียวกัน)
    เป็นแค่ข้อมูล ผู้ตรวจเลือกทำอันไหนก่อนก็ได้ ไม่ได้บังคับลำดับ */
-.queue-badge {
-    display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
+.queue-cell { font-size: 15px; }
+.q-pill {
+    display: inline-block; padding: 2px 9px; border-radius: 999px;
     background: var(--st-queue-bg); border: 1px solid var(--st-queue-line);
-    color: var(--st-queue); font-size: 11px; font-weight: 700; vertical-align: middle;
+    color: var(--st-queue); font-size: 13px; font-weight: 700;
     font-variant-numeric: tabular-nums;
 }
+.q-dash { color: var(--ink-faint); }
 
 /* กล่องตอบกลับตอนกำลังแก้งานที่ถูกตีกลับ — ปุ่มเดียวจบทั้งตอบและส่งกลับเข้าคิว */
 .composer.is-fixing { border-color: var(--st-returned-line); background: var(--st-returned-bg); }
@@ -379,6 +381,9 @@ select.auth-input { cursor: pointer; }
     .row, .row-head { grid-template-columns: 1fr; }
     .row { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; position: relative; }
     .row .chev { position: absolute; top: 12px; right: 10px; }
+    /* คิว: ไม่มีหัวคอลัมน์บนมือถือ → ใส่คำว่า "คิว" นำหน้า และซ่อนแถวที่ไม่มีคิว */
+    .row .queue-cell.is-empty { display: none; }
+    .row .queue-cell::before { content: "คิว "; color: var(--ink-faint); font-size: 13px; }
     .searchbox { max-width: none; }
     .brand .brand-sub { display: none; }
 }

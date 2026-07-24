@@ -76,12 +76,13 @@ function compareForList(a, b) {
     return parseDate(b.created) - parseDate(a.created);
 }
 
-// ป้ายลำดับคิว — เฉพาะงานที่ยังอยู่ในคิว (รอตรวจ/กำลังตรวจ)
+// คอลัมน์ลำดับคิว — เฉพาะงานที่ยังอยู่ในคิว (รอตรวจ/กำลังตรวจ)
 // N = จำนวนงานที่อยู่ก่อนหน้า + 1 · เลขเดียวกันทั้งฝั่งผู้ตรวจและผู้ส่ง
-function queueBadge(d) {
+function queueCellHtml(d) {
     var n = queueAhead(d);
-    if (n === null) return '';
-    return '<span class="queue-badge" title="ลำดับในคิวของผู้รับคนนี้ — ผู้ตรวจเลือกทำอันไหนก่อนก็ได้ ไม่ได้บังคับลำดับ">คิว #' + (n + 1) + '</span>';
+    if (n === null) return '<div class="queue-cell is-empty"><span class="q-dash">—</span></div>';
+    return '<div class="queue-cell" title="ลำดับในคิวของผู้รับคนนี้ — ผู้ตรวจเลือกทำอันไหนก่อนก็ได้ ไม่ได้บังคับลำดับ">' +
+        '<span class="q-pill">#' + (n + 1) + '</span></div>';
 }
 
 // รายชื่อผู้รับที่เลือกได้ = admin ทุกคน ยกเว้นตัวเอง (ส่งงานให้ตัวเองตรวจไม่มีความหมาย)
@@ -381,9 +382,10 @@ function renderRows() {
             : '<div class="due due-none">—</div>';
         return '<button class="row" data-id="' + d.id + '">' +
             '<div class="date tabular">' + formatDate(d.created) + '<span class="time">' + formatTime(d.created) + '</span></div>' +
-            '<div class="topic">' + escapeHtml(d.topic) + queueBadge(d) + revisionBadge(d) + '<span class="code">' + deriveCode(d) + '</span></div>' +
+            '<div class="topic">' + escapeHtml(d.topic) + revisionBadge(d) + '<span class="code">' + deriveCode(d) + '</span></div>' +
             '<div class="who">' + escapeHtml(prefix + cp.name) + '</div>' +
             dlHtml +
+            queueCellHtml(d) +
             '<div class="chip ' + st.cls + '"><span class="dot"></span>' + st.label + '</div>' +
             '<div class="chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"></polyline></svg></div>' +
             '</button>';
