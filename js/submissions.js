@@ -28,7 +28,7 @@ function loadSubmissions() {
             requestKey: 'listQueue'
         }).catch(function () { return []; })
     ]).then(function (r) {
-        SUBMISSIONS = r[0];
+        SUBMISSIONS = r[0].sort(compareForList);   // เรียงชั้นตามสถานะ: ต้องทำบน จบแล้วล่าง
         QUEUE_ROWS = r[1];
     }).catch(function (err) {
         // โดนยกเลิกเพราะมีการโหลดรอบใหม่ทับ (realtime ยิงถี่ๆ) — ไม่ใช่ error จริง
@@ -57,6 +57,31 @@ function queueAhead(d) {
         if (q.recipient === d.recipient && queuedTime(q) < mine) n++;
     }
     return n;
+}
+
+// จัดชั้นตามสถานะสำหรับเรียงรายการ: งานที่ต้องทำอยู่บน งานจบแล้วลงล่าง
+//   0 = รอตรวจ/กำลังตรวจ (ยังไม่จบ ต้องทำ)  1 = ตีกลับ (ลูกอยู่ที่ผู้ส่ง)  2 = เสร็จสิ้น (เก็บเข้ากรุ)
+function statusTier(d) {
+    if (d.status === 'queue' || d.status === 'review') return 0;
+    if (d.status === 'returned') return 1;
+    return 2;
+}
+
+// เรียง: ชั้นสถานะก่อน → ในชั้น "ต้องทำ" เรียงตามคิวเก่า→ใหม่ (บนสุด = คิวถัดไป),
+// ชั้นอื่นเรียงใหม่→เก่า (เพิ่งอัปเดตอยู่บนของกลุ่ม)
+function compareForList(a, b) {
+    var ta = statusTier(a), tb = statusTier(b);
+    if (ta !== tb) return ta - tb;
+    if (ta === 0) return parseDate(queuedTime(a)) - parseDate(queuedTime(b));
+    return parseDate(b.created) - parseDate(a.created);
+}
+
+// ป้ายลำดับคิว — เฉพาะงานที่ยังอยู่ในคิว (รอตรวจ/กำลังตรวจ)
+// N = จำนวนงานที่อยู่ก่อนหน้า + 1 · เลขเดียวกันทั้งฝั่งผู้ตรวจและผู้ส่ง
+function queueBadge(d) {
+    var n = queueAhead(d);
+    if (n === null) return '';
+    return '<span class="queue-badge" title="ลำดับในคิวของผู้รับคนนี้ — ผู้ตรวจเลือกทำอันไหนก่อนก็ได้ ไม่ได้บังคับลำดับ">คิว #' + (n + 1) + '</span>';
 }
 
 // รายชื่อผู้รับที่เลือกได้ = admin ทุกคน ยกเว้นตัวเอง (ส่งงานให้ตัวเองตรวจไม่มีความหมาย)
@@ -356,7 +381,7 @@ function renderRows() {
             : '<div class="due due-none">—</div>';
         return '<button class="row" data-id="' + d.id + '">' +
             '<div class="date tabular">' + formatDate(d.created) + '<span class="time">' + formatTime(d.created) + '</span></div>' +
-            '<div class="topic">' + escapeHtml(d.topic) + revisionBadge(d) + '<span class="code">' + deriveCode(d) + '</span></div>' +
+            '<div class="topic">' + escapeHtml(d.topic) + queueBadge(d) + revisionBadge(d) + '<span class="code">' + deriveCode(d) + '</span></div>' +
             '<div class="who">' + escapeHtml(prefix + cp.name) + '</div>' +
             dlHtml +
             '<div class="chip ' + st.cls + '"><span class="dot"></span>' + st.label + '</div>' +

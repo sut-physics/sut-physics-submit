@@ -109,6 +109,15 @@
     color: var(--st-returned); font-size: 11px; font-weight: 700; vertical-align: middle;
 }
 
+/* ป้ายลำดับคิว — บอกตำแหน่งในคิวของผู้รับ (ทั้งผู้ตรวจและผู้ส่งเห็นเลขเดียวกัน)
+   เป็นแค่ข้อมูล ผู้ตรวจเลือกทำอันไหนก่อนก็ได้ ไม่ได้บังคับลำดับ */
+.queue-badge {
+    display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
+    background: var(--st-queue-bg); border: 1px solid var(--st-queue-line);
+    color: var(--st-queue); font-size: 11px; font-weight: 700; vertical-align: middle;
+    font-variant-numeric: tabular-nums;
+}
+
 /* กล่องตอบกลับตอนกำลังแก้งานที่ถูกตีกลับ — ปุ่มเดียวจบทั้งตอบและส่งกลับเข้าคิว */
 .composer.is-fixing { border-color: var(--st-returned-line); background: var(--st-returned-bg); }
 .composer-note { font-size: 13.5px; line-height: 1.6; color: var(--ink); }

@@ -50,7 +50,12 @@ function refreshPendingCount() {
         var el = document.getElementById('approveCount');
         el.textContent = total;
         el.style.display = total > 0 ? '' : 'none';
-    }).catch(function (err) { console.error('นับรายการรออนุมัติไม่สำเร็จ:', err); });
+    }).catch(function (err) {
+        // โดนยกเลิกเพราะมีรอบใหม่ทับ (realtime users/password_resets ยิงถี่ๆ) — ไม่ใช่ error จริง
+        // รอบใหม่ที่มาทับคือตัวที่นับเลขถูก → ปล่อยเงียบ ไม่งั้นขึ้น "autocancelled" ใน console หลอกให้ตกใจ
+        if (err && err.isAbort) return;
+        console.error('นับรายการรออนุมัติไม่สำเร็จ:', err);
+    });
 }
 
 // แถวสมาชิกหนึ่งคน — ปุ่มที่ขึ้นต่างกันตามสถานะ/สิทธิ์ของคนนั้น
