@@ -176,6 +176,7 @@ function submitSignup() {
 }
 
 function showApp() {
+    _sessionInvalidHandled = false;   // เข้าแอปสำเร็จ → รีเซ็ตตัวกันเด้งซ้ำ พร้อมรับเซสชันใหม่
     // ยังไม่ได้รับอนุมัติ → หน้ารออนุมัติ ไม่เปิดแอป
     if (currentUser.status !== 'approved') {
         showPendingScreen();
@@ -349,4 +350,26 @@ function logout() {
     pb.authStore.clear();
     currentUser = { id: '', username: '', role: '', displayName: '', status: '' };
     location.reload();
+}
+
+// server ปฏิเสธ token กลางคัน (401) — เช่นบัญชีถูก "ปิดใช้งาน" จากอีกจอ (hook เรียก refreshTokenKey
+// ทำให้ token ที่ออกไปแล้วตายทันที) หรือเซสชันหมดอายุ · เตะกลับหน้า login ทันทีพร้อมบอกเหตุผล
+// แทนที่จะปล่อยให้ผู้ใช้กดต่อแล้ว query ล้มเงียบๆ (เช่น dropdown ผู้รับว่างเปล่า) จนกด refresh เอง
+var _sessionInvalidHandled = false;
+function handleSessionInvalid() {
+    if (_sessionInvalidHandled) return;      // กันเด้งซ้ำจากหลาย request ที่ 401 พร้อมกัน
+    if (!currentUser.id) return;             // ยังไม่ได้อยู่ในแอป (token ค้างตอนโหลดหน้า) → checkLogin จัดการเอง
+    _sessionInvalidHandled = true;
+    try { unsubscribeAll(); } catch (e) {}
+    try { unsubscribeAdmin(); } catch (e) {}
+    pb.authStore.clear();
+    currentUser = { id: '', username: '', role: '', displayName: '', status: '' };
+    // ปิด modal ที่อาจค้างเปิดอยู่ตอนโดนเตะ
+    Array.prototype.forEach.call(document.querySelectorAll('.modal'), function (m) { m.classList.add('hidden'); });
+    showAuthScreen('login');
+    var le = document.getElementById('loginError');
+    if (le) {
+        le.textContent = 'บัญชีนี้ถูกปิดใช้งาน หรือเซสชันหมดอายุ — กรุณาเข้าสู่ระบบใหม่';
+        le.style.display = 'block';
+    }
 }

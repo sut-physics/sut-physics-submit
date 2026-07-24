@@ -3,6 +3,17 @@
 // (feature files กำหนดฟังก์ชัน global ไว้แล้ว โหลดตามลำดับใน index.html)
 // ============================================================
 document.addEventListener('DOMContentLoaded', function () {
+    // ดักจับ token ที่ถูก server ปฏิเสธ (401) จากทุก request → เตะกลับ login ทันที
+    // (SDK เรียก afterSend กับทุก response รวม 4xx ก่อนจะ throw) — ทำให้บัญชีที่ถูกปิดใช้งาน
+    // จากอีกจอโดนเตะออกทันทีที่ยิง request ถัดไป ไม่ต้องรอ refresh
+    // NB: login ที่รหัส/สถานะไม่ผ่านคืน 400 ไม่ใช่ 401 จึงไม่ไปกระตุ้นตัวนี้ตอนพยายาม login
+    pb.afterSend = function (response, data) {
+        if (response && response.status === 401) {
+            setTimeout(handleSessionInvalid, 0);
+        }
+        return data;
+    };
+
     // --- auth screens ---
     document.getElementById('loginBtn').addEventListener('click', attemptLogin);
     document.getElementById('gotoSignup').addEventListener('click', function (e) { e.preventDefault(); showAuthScreen('signup'); });
