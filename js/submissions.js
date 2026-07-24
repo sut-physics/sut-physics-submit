@@ -59,20 +59,32 @@ function queueAhead(d) {
     return n;
 }
 
-// จัดชั้นตามสถานะสำหรับเรียงรายการ: งานที่ต้องทำอยู่บน งานจบแล้วลงล่าง
-//   0 = รอตรวจ/กำลังตรวจ (ยังไม่จบ ต้องทำ)  1 = ตีกลับ (ลูกอยู่ที่ผู้ส่ง)  2 = เสร็จสิ้น (เก็บเข้ากรุ)
-function statusTier(d) {
-    if (d.status === 'queue' || d.status === 'review') return 0;
+// จัดชั้นสำหรับเรียงรายการ — ต่างกันตามบทบาท:
+//   admin (ผู้ตรวจ): งานที่ต้องตรวจอยู่บนสุดเรียงคิวติดกัน → เสร็จสิ้นลงล่างสุด
+//     0 = ต้องตรวจ (ฉันเป็นผู้ตรวจ + รอตรวจ/กำลังตรวจ)
+//     1 = งานของฉันถูกตีกลับ ต้องแก้ (ฉันเป็นผู้ส่ง + ตีกลับ · แก้ส่งกลับแล้วเด้งเข้าคิวชั้น 0)
+//     2 = ที่ต้องรอ (ฉันส่งไปรอเขาตรวจ ⏳ / ฉันตีกลับไปรอเขาแก้)
+//     3 = เสร็จสิ้น (ล่างสุด)
+//   member (ผู้ส่ง): งานที่ยังไม่จบอยู่บน จบแล้วลงล่าง (คงเดิม — งานที่รอตรวจคือเนื้อหาหลักของเขา)
+function sortRank(d) {
+    var active = (d.status === 'queue' || d.status === 'review');
+    if (currentUser && currentUser.role === 'admin') {
+        var iReview = currentUser.id === d.recipient;
+        if (iReview && active) return 0;                     // ต้องตรวจ
+        if (!iReview && d.status === 'returned') return 1;   // งานฉันถูกตีกลับ ต้องแก้
+        return (d.status === 'complete') ? 3 : 2;            // เสร็จสิ้น=ล่างสุด · ที่ต้องรอ=เหนือขึ้นมา
+    }
+    if (active) return 0;
     if (d.status === 'returned') return 1;
     return 2;
 }
 
-// เรียง: ชั้นสถานะก่อน → ในชั้น "ต้องทำ" เรียงตามคิวเก่า→ใหม่ (บนสุด = คิวถัดไป),
-// ชั้นอื่นเรียงใหม่→เก่า (เพิ่งอัปเดตอยู่บนของกลุ่ม)
+// เรียง: ชั้นก่อน → ในชั้น "ต้องตรวจ/ยังไม่จบ" (rank 0) เรียงตามคิวเก่า→ใหม่ (บนสุด = คิวถัดไป),
+// ชั้นอื่นเรียงใหม่→เก่า
 function compareForList(a, b) {
-    var ta = statusTier(a), tb = statusTier(b);
-    if (ta !== tb) return ta - tb;
-    if (ta === 0) return parseDate(queuedTime(a)) - parseDate(queuedTime(b));
+    var ra = sortRank(a), rb = sortRank(b);
+    if (ra !== rb) return ra - rb;
+    if (ra === 0) return parseDate(queuedTime(a)) - parseDate(queuedTime(b));
     return parseDate(b.created) - parseDate(a.created);
 }
 
