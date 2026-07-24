@@ -66,6 +66,15 @@ document.addEventListener('DOMContentLoaded', function () {
         t.addEventListener('click', function () { switchApproveTab(t.getAttribute('data-tab')); });
     });
 
+    // --- file preview modal ---
+    document.getElementById('fpCloseBtn').addEventListener('click', closeFilePreview);
+    document.getElementById('filePreviewBackdrop').addEventListener('click', closeFilePreview);
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !document.getElementById('filePreviewModal').classList.contains('hidden')) {
+            closeFilePreview();
+        }
+    });
+
     // --- new-submission modal ---
     document.getElementById('newSubmitBtn').addEventListener('click', submitNew);
     document.getElementById('newCancelBtn').addEventListener('click', closeNewModal);

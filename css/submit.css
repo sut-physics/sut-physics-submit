@@ -332,6 +332,30 @@
 .modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 22px; border-top: 1px solid var(--line); }
 select.auth-input { cursor: pointer; }
 
+/* ---------- file preview modal ---------- */
+.fp-dialog { max-width: 840px; }
+.fp-name {
+    font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: calc(100% - 70px);
+}
+.fp-body {
+    padding: 0; background: var(--paper);
+    display: flex; align-items: center; justify-content: center;
+    min-height: 300px; max-height: calc(100vh - 210px); overflow: auto;
+}
+.fp-body img { max-width: 100%; max-height: calc(100vh - 210px); display: block; }
+.fp-body iframe {
+    width: 100%; height: calc(100vh - 220px); min-height: 420px;
+    border: 0; background: #fff;
+}
+.fp-loading, .fp-msg {
+    padding: 52px 24px; color: var(--ink-muted); font-size: 14px; text-align: center; line-height: 1.6;
+}
+.fp-msg .fp-ico { display: block; margin: 0 auto 14px; color: var(--ink-faint); }
+@media (max-width: 560px) {
+    .fp-body iframe { height: 60vh; }
+}
+
 /* ---------- responsive ---------- */
 @media (max-width: 860px) {
     .stage { grid-template-columns: 1fr; }

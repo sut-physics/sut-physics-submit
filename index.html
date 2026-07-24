@@ -4,9 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ส่งงาน — สาขาวิชาฟิสิกส์</title>
-    <link rel="stylesheet" href="css/variables.css?v=fb9b5517">
-    <link rel="stylesheet" href="css/base.css?v=fb9b5517">
-    <link rel="stylesheet" href="css/submit.css?v=fb9b5517">
+    <link rel="stylesheet" href="css/variables.css?v=56717b0f">
+    <link rel="stylesheet" href="css/base.css?v=56717b0f">
+    <link rel="stylesheet" href="css/submit.css?v=56717b0f">
 </head>
 <body>
 
@@ -293,12 +293,32 @@
     </div>
 </div>
 
+<!-- ==================== File preview modal ==================== -->
+<!-- ไฟล์แนบเป็น protected — ขอ file token ตอนเปิด modal (ตอนกด) แล้วพรีวิวในแอป
+     รูป/PDF แสดงในตัว, ชนิดอื่นให้ดาวน์โหลด · ปุ่มเป็น <a> ที่ผู้ใช้กดเอง = ไม่โดน popup blocker -->
+<div id="filePreviewModal" class="modal hidden">
+    <div class="modal-backdrop" id="filePreviewBackdrop"></div>
+    <div class="modal-dialog fp-dialog">
+        <div class="modal-head">
+            <h2 id="fpName" class="fp-name">ไฟล์แนบ</h2>
+            <button class="btn btn-ghost" id="fpCloseBtn" type="button">ปิด</button>
+        </div>
+        <div class="modal-body fp-body" id="fpBody">
+            <div class="fp-loading">กำลังเตรียมไฟล์...</div>
+        </div>
+        <div class="modal-foot">
+            <a class="btn" id="fpOpenBtn" href="#" target="_blank" rel="noopener" style="display:none;">เปิดในแท็บใหม่</a>
+            <a class="btn btn-primary" id="fpDownloadBtn" href="#" style="display:none;">ดาวน์โหลด</a>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/pocketbase@0.25.2/dist/pocketbase.umd.js"></script>
-<script src="js/config.js?v=fb9b5517"></script>
-<script src="js/state.js?v=fb9b5517"></script>
-<script src="js/auth.js?v=fb9b5517"></script>
-<script src="js/submissions.js?v=fb9b5517"></script>
-<script src="js/admin.js?v=fb9b5517"></script>
-<script src="js/app.js?v=fb9b5517"></script>
+<script src="js/config.js?v=56717b0f"></script>
+<script src="js/state.js?v=56717b0f"></script>
+<script src="js/auth.js?v=56717b0f"></script>
+<script src="js/submissions.js?v=56717b0f"></script>
+<script src="js/admin.js?v=56717b0f"></script>
+<script src="js/app.js?v=56717b0f"></script>
 </body>
 </html>

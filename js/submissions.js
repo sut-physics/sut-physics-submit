@@ -168,23 +168,68 @@ function fileChipHtml(rec, rawName) {
         '<span><span class="fname">' + escapeHtml(name) + '</span><br><span class="fsize">เปิดไฟล์</span></span></button>';
 }
 
-// ผูกปุ่มเปิดไฟล์ทั้งหมดในกล่องที่ระบุ
+// ผูกปุ่มเปิดไฟล์ทั้งหมดในกล่องที่ระบุ → เปิด modal พรีวิวในแอป
 function wireFileChips(root) {
     Array.prototype.forEach.call(root.querySelectorAll('[data-fc]'), function (btn) {
         btn.addEventListener('click', function () {
             var parts = btn.getAttribute('data-fc').split('|');
-            // ต้องเปิดแท็บ "ตอนกด" เลย ไม่งั้นเปิดหลัง await จะโดน popup blocker
-            var w = window.open('', '_blank');
-            pb.files.getToken().then(function (token) {
-                var url = pb.files.getURL({ collectionId: parts[0], id: parts[1] }, parts[2], { token: token });
-                if (w) { w.location.href = url; } else { window.location.href = url; }
-            }).catch(function (err) {
-                if (w) w.close();
-                console.error('ขอสิทธิ์เปิดไฟล์ไม่สำเร็จ:', err);
-                alert('เปิดไฟล์ไม่สำเร็จ — ลองใหม่อีกครั้ง');
-            });
+            openFilePreview(parts[0], parts[1], parts[2]);
         });
     });
+}
+
+function isPreviewableImage(name) { return /\.(png|jpe?g|gif|webp|svg|bmp|avif|ico)$/i.test(name); }
+function isPreviewablePdf(name) { return /\.pdf$/i.test(name); }
+
+// เปิด modal พรีวิว — ขอ token ตอนกด (อายุสั้น) ใช้ทันทีทั้งพรีวิวและปุ่มดาวน์โหลด/เปิดแท็บ
+// ปุ่ม 2 อันเป็น <a> ที่ผู้ใช้กดเอง → ไม่โดน popup blocker (ต่างจากของเดิมที่เปิดแท็บให้อัตโนมัติ)
+function openFilePreview(collectionId, id, rawName) {
+    var name = cleanFileName(rawName);
+    var modal = document.getElementById('filePreviewModal');
+    var body = document.getElementById('fpBody');
+    var openBtn = document.getElementById('fpOpenBtn');
+    var dlBtn = document.getElementById('fpDownloadBtn');
+
+    document.getElementById('fpName').textContent = name;
+    body.innerHTML = '<div class="fp-loading">กำลังเตรียมไฟล์...</div>';
+    openBtn.style.display = 'none';
+    dlBtn.style.display = 'none';
+    modal.classList.remove('hidden');
+
+    pb.files.getToken().then(function (token) {
+        var rec = { collectionId: collectionId, id: id };
+        var viewUrl = pb.files.getURL(rec, rawName, { token: token });
+        var dlUrl = pb.files.getURL(rec, rawName, { token: token, download: 1 });
+
+        if (isPreviewableImage(rawName)) {
+            body.innerHTML = '';
+            var img = document.createElement('img');
+            img.src = viewUrl; img.alt = name;
+            body.appendChild(img);
+        } else if (isPreviewablePdf(rawName)) {
+            body.innerHTML = '';
+            var frame = document.createElement('iframe');
+            frame.src = viewUrl; frame.title = name;
+            body.appendChild(frame);
+        } else {
+            // ชนิดอื่น (docx/zip/...) เบราว์เซอร์แสดงตัวอย่างในหน้าไม่ได้ → ให้ดาวน์โหลด
+            body.innerHTML = '<div class="fp-msg">' +
+                '<svg class="fp-ico" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>' +
+                'ไฟล์ชนิดนี้แสดงตัวอย่างในหน้าเว็บไม่ได้<br>กดปุ่ม “ดาวน์โหลด” เพื่อเปิดด้วยโปรแกรมในเครื่อง</div>';
+        }
+
+        openBtn.href = viewUrl; openBtn.style.display = '';
+        dlBtn.href = dlUrl; dlBtn.setAttribute('download', name); dlBtn.style.display = '';
+    }).catch(function (err) {
+        console.error('ขอสิทธิ์เปิดไฟล์ไม่สำเร็จ:', err);
+        body.innerHTML = '<div class="fp-msg">เปิดไฟล์ไม่สำเร็จ — ปิดหน้าต่างแล้วลองใหม่อีกครั้ง</div>';
+    });
+}
+
+function closeFilePreview() {
+    document.getElementById('filePreviewModal').classList.add('hidden');
+    // เคลียร์ src กัน iframe/img โหลดค้างเบื้องหลังหลังปิด
+    document.getElementById('fpBody').innerHTML = '';
 }
 
 // ---------- ตัวช่วยกรอง (ใช้ร่วมกันระหว่าง rail กับ rows) ----------
