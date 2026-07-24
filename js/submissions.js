@@ -81,8 +81,16 @@ function compareForList(a, b) {
 function queueCellHtml(d) {
     var n = queueAhead(d);
     if (n === null) return '<div class="queue-cell is-empty"><span class="q-dash">—</span></div>';
-    return '<div class="queue-cell" title="ลำดับในคิวของผู้รับคนนี้ — ผู้ตรวจเลือกทำอันไหนก่อนก็ได้ ไม่ได้บังคับลำดับ">' +
-        '<span class="q-pill">#' + (n + 1) + '</span></div>';
+    var pos = n + 1;
+    // แยกความหมายตามทิศทาง เพราะเป็นคนละคิว (คนละผู้ตรวจ) — กันงงว่าทำไมเลขซ้ำ
+    if (currentUser && currentUser.id === d.recipient) {
+        // งานที่ "ฉันต้องตรวจ" → ลำดับในคิวงานของฉัน
+        return '<div class="queue-cell" title="ลำดับในคิวงานที่คุณต้องตรวจ — เลือกทำอันไหนก่อนก็ได้ ไม่ได้บังคับลำดับ">' +
+            '<span class="q-pill">#' + pos + '</span></div>';
+    }
+    // งานที่ "ฉันส่งไปให้คนอื่นตรวจ" → ฉันเป็นคิวที่เท่าไรในคิวของผู้ตรวจคนนั้น (กำลังรอ)
+    return '<div class="queue-cell" title="คุณเป็นคิวที่ ' + pos + ' ในคิวของผู้ตรวจคนนี้ — กำลังรอเขาตรวจ">' +
+        '<span class="q-wait">⏳ ' + pos + '</span></div>';
 }
 
 // รายชื่อผู้รับที่เลือกได้ = admin ทุกคน ยกเว้นตัวเอง (ส่งงานให้ตัวเองตรวจไม่มีความหมาย)

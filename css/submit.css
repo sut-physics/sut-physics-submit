@@ -118,6 +118,12 @@
     color: var(--st-queue); font-size: 13px; font-weight: 700;
     font-variant-numeric: tabular-nums;
 }
+.q-wait {
+    display: inline-block; padding: 2px 9px; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--line-strong);
+    color: var(--ink-muted); font-size: 13px; font-weight: 700;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+}
 .q-dash { color: var(--ink-faint); }
 
 /* กล่องตอบกลับตอนกำลังแก้งานที่ถูกตีกลับ — ปุ่มเดียวจบทั้งตอบและส่งกลับเข้าคิว */
