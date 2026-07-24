@@ -195,6 +195,7 @@ function showApp() {
     if (roleEl) roleEl.textContent = currentUser.role === 'admin' ? 'ผู้ดูแล (ผู้รับงาน)' : 'ผู้ใช้งาน';
     if (avatarEl) avatarEl.textContent = initials(currentUser.displayName);
 
+    startSessionWatch();   // เฝ้า token — ถูกปิดใช้งานจากอีกจอ = เด้งออก (query ปกติของ token เสียเงียบ ต้อง verify เอง)
     initSubmissions();
     initAdminApproval();
 }
@@ -360,6 +361,7 @@ function handleSessionInvalid() {
     if (_sessionInvalidHandled) return;      // กันเด้งซ้ำจากหลาย request ที่ 401 พร้อมกัน
     if (!currentUser.id) return;             // ยังไม่ได้อยู่ในแอป (token ค้างตอนโหลดหน้า) → checkLogin จัดการเอง
     _sessionInvalidHandled = true;
+    stopSessionWatch();
     try { unsubscribeAll(); } catch (e) {}
     try { unsubscribeAdmin(); } catch (e) {}
     pb.authStore.clear();
@@ -372,4 +374,43 @@ function handleSessionInvalid() {
         le.textContent = 'บัญชีนี้ถูกปิดใช้งาน หรือเซสชันหมดอายุ — กรุณาเข้าสู่ระบบใหม่';
         le.style.display = 'block';
     }
+}
+
+// ตรวจเซสชันเชิงรุก — query ปกติของ token เสียคืน "200 ว่างเปล่า" ไม่ error จึงต้องถาม server ตรงๆ
+// authRefresh กับ token ที่ถูก refreshTokenKey (ปิดใช้งาน) จะได้ 401 → เตะออก
+// ได้ผลพลอยได้: อัปเดต role/status สดๆ ด้วย (ถูกอนุมัติ/ตั้ง admin ระหว่างใช้งานก็เห็นเลย)
+function verifySession() {
+    if (!currentUser.id) return;
+    pb.collection('users').authRefresh({ requestKey: 'sessionWatch' }).then(function (authData) {
+        setCurrentUserFromRecord(authData.record);
+        if (currentUser.status !== 'approved') handleSessionInvalid();   // ถูกปิด/ถอนอนุมัติระหว่างใช้
+    }).catch(function (err) {
+        // เตะเฉพาะตอน auth ถูกปฏิเสธจริง (401/403) — เน็ตหลุดชั่วคราว (status 0) ไม่เตะ
+        if (err && (err.status === 401 || err.status === 403)) handleSessionInvalid();
+    });
+}
+
+// เฝ้าเซสชัน: verify ตอนมี activity (throttle 5 วิ) + heartbeat 30 วิ เผื่อนั่งเฉยๆ
+var _sessionWatchTimer = null;
+var _lastVerify = 0;
+function _verifyOnActivity() {
+    if (!currentUser.id) return;
+    var now = Date.now();
+    if (now - _lastVerify < 5000) return;
+    _lastVerify = now;
+    verifySession();
+}
+function startSessionWatch() {
+    stopSessionWatch();
+    _lastVerify = Date.now();
+    _sessionWatchTimer = setInterval(function () { _lastVerify = Date.now(); verifySession(); }, 30000);
+    document.addEventListener('click', _verifyOnActivity, true);
+    document.addEventListener('keydown', _verifyOnActivity, true);
+    document.addEventListener('visibilitychange', _verifyOnActivity);
+}
+function stopSessionWatch() {
+    if (_sessionWatchTimer) { clearInterval(_sessionWatchTimer); _sessionWatchTimer = null; }
+    document.removeEventListener('click', _verifyOnActivity, true);
+    document.removeEventListener('keydown', _verifyOnActivity, true);
+    document.removeEventListener('visibilitychange', _verifyOnActivity);
 }
