@@ -19,6 +19,25 @@
 | Monitoring | **UptimeRobot** (ฟรี · บัญชี ts.khumwong@gmail.com) เฝ้า `/api/health` ทุก 5 นาที → เตือนเข้าเมล · [dashboard](https://dashboard.uptimerobot.com/monitors/803582607) |
 | ข้อมูลตอนนี้ | **งาน 0 · ข้อความ 0 · ไฟล์ 0 · คำขอลืมรหัส 0** (ล้างทดสอบ 24 ก.ค.) · **3 บัญชี**: `santa`/`yip` (admin) · `member1` (user) — santa ลบ member2/member3 ทิ้งแล้ว |
 
+### 🔴 ทำก่อน **12 ส.ค. 22:22 (เวลาไทย)** — Oracle สั่ง maintenance reboot
+
+Oracle ตรวจพบ hardware ที่ `submit-vm` รันอยู่ **ไม่เสถียร** → ต้อง reboot ย้ายเครื่องไป hardware ตัวใหม่
+(REF **COMPUTE-10B** · เดดไลน์ `2026-08-12T15:22 UTC` = **12 ส.ค. 22:22 เวลาไทย** · กระทบเครื่องเดียวที่มี)
+
+- **ทำเอง (แนะนำ ตอนดึกคนไม่ใช้)**: Console → Compute → Instances → `submit-vm` → ปุ่ม **Reboot**
+  = maintenance reboot migration (Oracle ย้ายเครื่องให้เอง) · **อย่า stop/start**
+- ⚠️ **public IP เป็น EPHEMERAL** (`161.118.215.176`):
+  - **Reboot migration → เก็บ IP เดิม** (SSH ไม่ต้องแก้) ✅
+  - **stop/start → ปล่อย IP = ได้ IP ใหม่** ❌ → ห้าม stop/start
+- เว็บ **ไม่กระทบ** (Funnel ไม่พึ่ง public IP) · ระบบ auto-start หลัง reboot (pocketbase/tailscaled/cron enable ไว้)
+- **หลัง reboot เช็ค 4 จุด**:
+  1. เว็บ https://submit.tail42c76d.ts.net/ ขึ้น
+  2. `ssh -i ~/Downloads/ssh-key-2026-07-22.key ubuntu@161.118.215.176` เข้าได้ (IP เดิม)
+  3. `/api/health` = 200 · `systemctl status pocketbase tailscaled cron` ครบ
+  4. คืนถัดไปเช็ค snapshot ตี 3 ยังยิง + NAS ดึงตี 4 (backup pipeline ไม่สะดุด)
+- ถ้าไม่ทำเอง → Oracle เด้งเองภายใน 24 ชม. หลังเดดไลน์ (คุมเวลาไม่ได้) · ระบบรอดแต่ควรทำเองดีกว่า
+- (ออปชัน priority ต่ำ) แปลง ephemeral IP → reserved กัน IP เปลี่ยนถาวร — แต่เว็บไม่พึ่ง IP อยู่แล้ว ไม่จำเป็น
+
 ### 🟢 Oracle Free Trial + แผนสำรอง NAS (3 ส.ค.)
 
 **Oracle Free Trial ใกล้หมด ~21 ส.ค.** — เช็คแล้ว **ไม่ใช่เรื่องฉุกเฉินอย่างที่กลัว**:
