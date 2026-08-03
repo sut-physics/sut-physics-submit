@@ -4,6 +4,9 @@ Oracle Always Free อาจดึงเครื่องคืน (idle-reclai
 เพราะทุกคืน NAS จะดึง backup ลงมาเก็บไว้ที่ `202.28.43.149` (สำเนา off-site คนละที่กับ VM)
 นี่คือขั้นตอนกู้ระบบกลับมาให้ครบ
 
+> 💡 **อยากกู้ขึ้นเร็วโดยไม่ต้อง provision VM ใหม่?** ดู [FALLBACK-NAS.md](FALLBACK-NAS.md) —
+> รันชั่วคราวบน NAS ด้วย Docker (แบบเดียวกับ dashboard) ระหว่างหา host ใหม่
+
 > **ทดสอบแล้วจริง** (23 ก.ค. 2026): ดึง backup ที่เข้ารหัสจาก VM → ถอดรหัสด้วยกุญแจไข →
 > `integrity_check: ok` · บัญชีครบ · **ไฟล์แนบ byte-identical กับต้นฉบับทุกไฟล์** ·
 > ลองใช้กุญแจผิด → `no identity matched any of the recipients` (ถอดไม่ออกจริง)

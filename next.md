@@ -1,7 +1,7 @@
 # 📍 เราอยู่ตรงไหน / ต่อไปทำอะไร
 
 > ไฟล์สถานะ อัปเดตทุกครั้งที่คืบหน้า — เปิดไฟล์นี้ไฟล์เดียวก็รู้ว่าเหลืออะไร
-> อัปเดตล่าสุด: **2026-07-24 10:40** — cron รอบแรกที่รันเองผ่าน (แก้บั๊ก TZ แล้ว) · เหลือเทสต์ UI รอบใหญ่
+> อัปเดตล่าสุด: **2026-08-03** — เช็คระบบก่อนเปลี่ยน session: ทุกอย่างเขียว · **backup อัตโนมัติทำงานถูกต้องมา 10 วัน (snapshot ตี 3 + NAS ตี 4 ทุกคืน)** · UI เทสต์+แก้ 6 จุดเสร็จตั้งแต่ 24 ก.ค. (ver `5836e81c`)
 
 ---
 
@@ -16,7 +16,22 @@
 | ค่าจริง/วิธีดูแล | `.env` (ไม่ขึ้น git) · `deploy/OPERATIONS.md` · `deploy/RESTORE.md` |
 | Backup | ตี 3 VM สร้าง snapshot **เข้ารหัส age** → ตี 4 NAS ดึงลง `/volume2/submit-backups/` |
 | กุญแจไข backup | `~/submit-backup-key.txt` + Google Password Manager + **กระดาษ** (3 ที่ ✓) |
-| ข้อมูลตอนนี้ | **งาน 0 · ข้อความ 0 · ไฟล์ 0** · บัญชี 5 คน: `santa`/`yip` (admin) · `member1`/`member2`/`member3` (user) |
+| Monitoring | **UptimeRobot** (ฟรี · บัญชี ts.khumwong@gmail.com) เฝ้า `/api/health` ทุก 5 นาที → เตือนเข้าเมล · [dashboard](https://dashboard.uptimerobot.com/monitors/803582607) |
+| ข้อมูลตอนนี้ | **งาน 0 · ข้อความ 0 · ไฟล์ 0 · คำขอลืมรหัส 0** (ล้างทดสอบ 24 ก.ค.) · **3 บัญชี**: `santa`/`yip` (admin) · `member1` (user) — santa ลบ member2/member3 ทิ้งแล้ว |
+
+### 🟢 Oracle Free Trial + แผนสำรอง NAS (3 ส.ค.)
+
+**Oracle Free Trial ใกล้หมด ~21 ส.ค.** — เช็คแล้ว **ไม่ใช่เรื่องฉุกเฉินอย่างที่กลัว**:
+- VM เป็น **AMD E2.1.Micro = Always-Free-eligible อยู่ในลิมิต** → trial หมดจะ downgrade เป็น Always Free **รันต่อฟรี ไม่ถูกยึด** (ยืนยันจาก [Oracle FAQ](https://www.oracle.com/cloud/free/faq/) + [docs](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm): *"Always Free resources will not be reclaimed"*)
+- ข้อยกเว้น "ลบใน 30 วัน" ใช้กับ **A1 (ARM) ที่เกินลิมิต** เท่านั้น — เราใช้ E2.1.Micro ไม่โดน
+- ความเสี่ยงที่เหลือ = **idle-reclaim ของ x86 micro** (นโยบายแยก) → **PAYG ยกเว้นข้อนี้** · UptimeRobot ping ช่วยได้บ้าง
+- **ควรทำ (santa)**: เปิด Console เช็ค instance ติดป้าย "Always Free eligible" + limits ไม่เกินโควตา · ถ้าหาบัตรที่ผ่านได้ อัป PAYG (฿0) ปิดความเสี่ยง idle · **ไม่ต้องรีบจ่าย VPS ฿245/เดือน**
+
+**แผนสำรอง NAS พร้อมแล้ว** (cold standby — Oracle ล่มค่อยกด, ~20-30 นาที):
+- [`deploy/FALLBACK-NAS.md`](deploy/FALLBACK-NAS.md) — runbook ทีละขั้น: กู้ backup → Docker บน NAS → เช็ค hooks → เปิด URL
+- [`deploy/docker-compose.fallback.yml`](deploy/docker-compose.fallback.yml) — compose สำเร็จรูป (pin PB 0.25.2, mount ครบ 3 โฟลเดอร์)
+- ใช้ Docker แบบเดียวกับ dashboard ที่รันบน NAS อยู่แล้ว (`202.28.43.149:8088`) · URL: IP:port หรือ Tailscale Funnel (สวย+HTTPS)
+- ⚠️ ถ้ารันบน NAS ยาวๆ **ต้องหาที่เก็บ backup ใหม่ที่ไม่ใช่ NAS** (ไม่งั้นตัวจริง+backup อยู่เครื่องเดียว = พังทีเดียวหมด) — runbook เตือนไว้แล้ว
 
 ### ⏭️ เช้าวันที่ 24 ก.ค. — ทำอันนี้ก่อน
 
@@ -26,13 +41,18 @@
 > → cron cache TZ เก่า (UTC) ไว้ตั้งแต่ start · **แก้: `sudo systemctl restart cron`** ให้อ่าน `/etc/localtime` ใหม่
 > reboot ครั้งหน้าไม่เป็นอีก (symlink TZ persistent, cron จะ start หลัง TZ ถูกตั้งแล้ว)
 > ⚠️ **ผลข้างเคียงที่ NAS**: NAS pull ตี 4 เคยดึง**ก่อน** snapshot 10 โมง → ได้ของค้างวัน
-> หลังแก้: VM ยิงตี 3 → NAS ตี 4 ดึงของสดถูกลำดับ · **พรุ่งนี้ 25 ก.ค. เช้า ยืนยันว่ามี snapshot รอบ 03:00 จริง**
-> (log ยืนยัน NAS ต่อเข้ามาดึงจริง 2 ช่วง: 23:59 และ 03:59 จาก 202.28.43.149 — แค่ timing เพี้ยนก่อนแก้)
+> หลังแก้: VM ยิงตี 3 → NAS ตี 4 ดึงของสดถูกลำดับ
+> ✅ **ยืนยันแล้ว 3 ส.ค.**: snapshot ยิง `03:00:01` เป๊ะทุกวันตั้งแต่ 25 ก.ค.–3 ส.ค. (รอบ buggy 10 โมงมีวันเดียวคือ 24 ก.ค. ก่อนแก้) · NAS ดึงตี 4 ทุกคืนจาก 202.28.43.149 — pipeline backup ทำงานอัตโนมัติสมบูรณ์
 
-**2. เทสต์ผ่าน UI รอบใหญ่** — ฟีเจอร์พวกนี้**ยังไม่เคยมีใครกดผ่านหน้าเว็บจริงเลย** (ผ่านแต่การยิง API)
-- **ปุ่มเปิดไฟล์แนบแบบใหม่** (ไปขอ file token ตอนกด) ← เสี่ยงสุด ถ้าพังคือเปิดไฟล์ไม่ได้เลย
-- ส่งงานที่แก้แล้วกลับเข้าคิว · ส่งต่อผู้ตรวจคนอื่น · ปิด/เปิดใช้งาน user · ตั้ง admin คนใหม่
-- realtime 2 หน้าจอ · ตัวนับคิวตอนมี admin 2 คน
+**2. เทสต์ผ่าน UI รอบใหญ่** — ✅ **เสร็จแล้ว 24 ก.ค. (ครบทุก checkbox)**
+checklist ที่ใช้: https://claude.ai/code/artifact/9e4b0455-4ad1-4351-b94c-5b8b379e7bf4
+**6 จุดที่เจอระหว่างเทสต์แล้วแก้+deploy แล้ว:**
+- **ไฟล์แนบ** → เปลี่ยนจากเปิดแท็บดิบ เป็น **modal พรีวิวในแอป (รูป/PDF) + ปุ่มดาวน์โหลด/เปิดแท็บ** (กัน popup blocker ไปในตัว)
+- **คอลัมน์ "คิว"** → แยกออกจากหัวข้อเป็นคอลัมน์ · `#N` เหลือง (งานที่ฉันต้องตรวจ) vs `⏳N` เทา (ฉันส่งไปรอเขาตรวจ) กันงงว่าเลขซ้ำ
+- **เรียงรายการมุมมอง admin** → ต้องตรวจ(คิวติดกัน) → ถูกตีกลับต้องแก้ → ที่ต้องรอ → เสร็จสิ้น(ล่างสุด) · member คงเดิม
+- **J3 เตะออกทันที** → token ที่ถูกปิดใช้งานคืน **200-ว่าง ไม่ใช่ 401** (เดิมเดาผิด) → เพิ่ม **session watch** (authRefresh ตอน activity ทุก 5วิ + heartbeat 30วิ) เตะเมื่อ 401/403 จริง · ผลพลอยได้: role/status อัปเดตสดระหว่างใช้งาน
+- **ลืมรหัส (K1)** → เลิกจำสถานะ "ขอแล้ว" ข้าม session (localStorage) ที่เป็น phantom → เปิดมาเริ่มกรอกชื่อเสมอ
+- **แก้ log autocancel** ตอนนับรออนุมัติ (admin.js เติม `isAbort` guard)
 
 **คุณ (santa) ทำเอง — ผมทำแทนไม่ได้**
 3. **บอก kobdai (เจ้าของ NAS)** เรื่อง scheduled task + NAS ต่อออกไป Oracle ตี 4 ทุกคืน
@@ -44,6 +64,13 @@
 5. **โดเมนตัวเอง** — ต้องมีโดเมนก่อน (ซื้อ/ขอจากมหาลัย) แล้วชี้ DNS มาที่ Funnel หรือใช้ `cloudflared` ที่ติดตั้งค้างไว้บน VM (DEPLOY.md ขั้น 4A)
 
 ---
+
+### 📡 ตั้ง monitoring แล้ว (24 ก.ค.)
+- **UptimeRobot** (ฟรี tier · บัญชี ts.khumwong@gmail.com) เฝ้า `https://submit.tail42c76d.ts.net/api/health` ทุก 5 นาที → เตือนเข้าเมลถ้าเว็บล่ม/VM โดนยึด
+- monitor ชื่อ "ส่งงาน ฟิสิกส์" · [dashboard](https://dashboard.uptimerobot.com/monitors/803582607)
+- ⚠️ **latency ~894ms ในหน้า UptimeRobot เป็นเรื่องปกติ — ไม่ใช่เว็บช้า** · ฟรี tier เช็คจาก region **North America** ยิงข้ามโลกมาผ่าน Funnel · ตัวเว็บจริงตอบ ~0.6 วิ (ยืนยันด้วย curl จากเครื่อง dev)
+- ตอนเพิ่งสร้างมีเมล **down→up คู่แรก = false positive** ของ check ครั้งแรก (Funnel cold-start) ไม่ใช่เว็บวูบจริง · พอ ping ทุก 5 นาที Funnel อุ่นตลอด ไม่เด้งอีก
+- ยังไม่ได้ทำ: LINE/push alert (ออปชัน) · monitor ตัวที่ 2 ชี้หน้าเว็บหลัก (ตอนนี้เช็คแค่ /api/health)
 
 ## ✅ เสร็จแล้ว (Phase 1 — build + test local ครบ)
 - แอปเต็มระบบ: login/signup, list, detail, ส่งงาน, ตอบกลับกระทู้, เปลี่ยนสถานะ, realtime, คิว

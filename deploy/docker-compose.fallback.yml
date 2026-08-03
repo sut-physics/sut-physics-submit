@@ -1,0 +1,26 @@
+# ============================================================
+# Fallback: รันระบบส่งงานบน NAS (Synology) แทน Oracle ชั่วคราว
+# ใช้คู่กับ deploy/FALLBACK-NAS.md — อย่ารันโดยไม่อ่าน runbook ก่อน
+#
+# วางไฟล์นี้ที่ /volume2/coe-submit/ บน NAS พร้อมกับ:
+#   ./pb_data/     ← กู้จาก backup แล้ว (ผ่าน restore-decrypt.sh บนเครื่อง dev)
+#   ./pb_public/   ← frontend (index.html, css/, js/) จาก repo
+#   ./pb_hooks/    ← main.pb.js จาก repo  (ขาดอันนี้ = ด่านความปลอดภัยหาย!)
+#
+# แล้วสั่ง:  docker compose -f docker-compose.fallback.yml up -d
+# ============================================================
+services:
+  pocketbase:
+    # pin เวอร์ชันให้ตรงกับที่ backup ถูกสร้าง (0.25.2) — อย่าใช้ :latest
+    # ไม่งั้น PocketBase จะ auto-migrate ตอน start ซึ่งไม่ควรเกิดตอนกู้ฉุกเฉิน
+    image: ghcr.io/muchobien/pocketbase:0.25.2
+    container_name: submit-fallback
+    user: "1000:1000"
+    ports:
+      # host:container — ใช้ 8091 บน host เพื่อเลี่ยงชนกับ dashboard (:8090/:8088)
+      - "8091:8090"
+    volumes:
+      - ./pb_data:/pb/pb_data       # ฐานข้อมูล + ไฟล์แนบ (กู้มาจาก backup)
+      - ./pb_public:/pb/pb_public   # หน้าเว็บ
+      - ./pb_hooks:/pb/pb_hooks     # ⚠️ ด่านอนุมัติ/กัน self-promote/ลืมรหัส — ห้ามลืม
+    restart: unless-stopped
