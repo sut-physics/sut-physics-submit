@@ -1,7 +1,7 @@
 # 📍 เราอยู่ตรงไหน / ต่อไปทำอะไร
 
 > ไฟล์สถานะ อัปเดตทุกครั้งที่คืบหน้า — เปิดไฟล์นี้ไฟล์เดียวก็รู้ว่าเหลืออะไร
-> อัปเดตล่าสุด: **2026-08-04** — 🔀 **ย้าย host จาก Oracle → NAS แล้ว** (Oracle Free capacity ล่ม 16 ชม.+ → terminate ทิ้ง) · ระบบรันบน NAS Docker ครบทุกฟังก์ชัน ทดสอบผ่าน · **เหลือ: HTTPS(Funnel) + backup ของ NAS**
+> อัปเดตล่าสุด: **2026-08-04** — 🔀 **ย้าย Oracle → NAS + ทำ HTTPS เสร็จ** · เว็บ `https://bnct.tail42c76d.ts.net/` (Tailscale Funnel + TLS) · ระบบครบทุกฟังก์ชัน · **เหลืออย่างเดียว: ตั้ง backup ของ NAS (เก็บนอก NAS)**
 
 ---
 
@@ -9,8 +9,8 @@
 
 | | |
 |---|---|
-| เว็บ | **http://202.28.43.149:8091/** ⚠️ ยัง http เปล่า (ยังไม่ได้ทำ HTTPS/Funnel — รหัสวิ่ง cleartext) |
-| Admin UI | http://202.28.43.149:8091/_/ (superuser `ts.khumwong@gmail.com` — รหัสใหม่ใน Google Password Manager) |
+| เว็บ | **https://bnct.tail42c76d.ts.net/** (HTTPS ผ่าน Tailscale Funnel) · ภายใน `http://202.28.43.149:8091/` |
+| Admin UI | https://bnct.tail42c76d.ts.net/_/ (superuser `ts.khumwong@gmail.com` — รหัสใหม่ใน Google Password Manager) |
 | repo | https://github.com/sut-physics/sut-physics-submit (private) |
 | **host** | **NAS Docker** · Container Manager project `submit-project` · `/volume2/submit-project/` · image `muchobien/pocketbase:0.25.2` · host port 8091 |
 | deploy | ⚠️ `./deploy.sh` เดิมยิงขึ้น Oracle **ใช้ไม่ได้แล้ว** · ตอนนี้อัปด้วยมือ: File Station วางไฟล์ + Container Manager rebuild (ยังไม่มี auto-deploy) · บันเดิลพร้อมอัปที่ `~/nas-bundle.zip` |
@@ -18,7 +18,7 @@
 | Monitoring | ⚠️ UptimeRobot เดิมชี้ URL Oracle ที่ตายแล้ว — ต้องแก้ให้ชี้ NAS หรือปิด |
 | ข้อมูลตอนนี้ | **เริ่มสด** (ไม่ได้กู้ backup เพราะระบบว่าง) · **3 บัญชีสมัครใหม่**: `santa`/`yip` (admin) · `member1` (user) + งานทดสอบ |
 
-### 🔀 ย้าย Oracle → NAS แล้ว (4 ส.ค.) — เหลือ 2 อย่าง
+### 🔀 ย้าย Oracle → NAS + HTTPS เสร็จ (4 ส.ค.) — เหลือ backup อย่างเดียว
 
 **ทำไมย้าย**: Oracle Free E2.1.Micro สิงคโปร์ **capacity ล่ม** — instance stopped แล้ว start ไม่ขึ้น `Out of host capacity` นาน 16 ชม.+ (ลอตเตอรี่ที่จะเกิดซ้ำทุก stop/reboot) → เลิกฝืน ย้ายมา NAS ที่เปิดตลอด · **Oracle `submit-vm` terminate ทิ้งแล้ว (ลบ boot volume ด้วย)**
 
@@ -27,7 +27,15 @@
 - ทดสอบ end-to-end ผ่าน: ส่งงาน/ตอบกลับ/เปลี่ยนสถานะ/realtime/อนุมัติสมาชิก ครบ
 - (ไฟล์ที่ใช้ deploy: `deploy/docker-compose.fallback.yml` + `deploy/FALLBACK-NAS.md` — เดิมทำไว้เป็น "fallback" ตอนนี้กลายเป็นวิธี deploy จริง · บันเดิลอัป `~/nas-bundle.zip`)
 
-**🔴 เหลือ ① HTTPS (Tailscale Funnel)** — ตอนนี้ login วิ่งผ่าน **http เปล่าบน public IP = รหัส cleartext** · ต้องลง Tailscale ใน Package Center บน NAS → `tailscale funnel --bg 8091` → ได้ URL+TLS · แล้วไปลบ node Oracle เก่าออกจาก Tailscale admin (login.tailscale.com → Machines)
+**✅ HTTPS (Tailscale Funnel) — เสร็จแล้ว 4 ส.ค.**: `https://bnct.tail42c76d.ts.net/` (TLS Let's Encrypt อัตโนมัติ, HTTP/2) · node = `bnct` (ตัว NAS เอง), funnel proxy → `127.0.0.1:8091`
+> 🐞 **บทเรียนตอนตั้ง Funnel (ปวดหัวมาก)**:
+> - **SSH ของ NAS อยู่ port `1122` ไม่ใช่ 22** · user `santa` · รหัส = รหัส DSM (`sudo` ได้)
+> - Tailscale package: **daemon (`tailscaled`) หลุดไปสถานะ `NeedsLogin` / `WantRunning=false`** (node ถูก logout) → funnel/status เลย hang · แก้: `synopkg restart Tailscale` (full path `/usr/syno/bin/synopkg`) แล้ว `tailscale up --authkey=<key>`
+> - **CLI ต้องชี้ socket ของ package**: `--socket=/var/packages/Tailscale/var/tailscaled.sock` (default socket ไม่ใช่อันนี้ → hang/logged-out)
+> - browser auth (หน้า `/a/...`) เด้งขาว ใช้ไม่ได้ → ต้องใช้ **auth key** (`tailscale up --authkey`) แทน
+> - Task Scheduler เขียน funnel.log ว่างเปล่า debug ไม่ได้ → ต้อง SSH เข้าไปทำเอง
+> - **ทำแล้วกันซ้ำ**: admin → Machines → bnct → **Disable key expiry** (กัน node หลุด login เองใน 180 วัน)
+> - funnel/`up` เก็บ config ใน tailscaled state → รอด daemon restart/reboot (package auto-start)
 
 **🟡 เหลือ ② Backup ของ NAS** — instance บน NAS **ยังไม่มี backup เลย** · pipeline เดิม (snapshot age + NAS pull ตี 3/ตี 4) backup Oracle ซึ่งลบแล้ว → ต้องตั้งใหม่ **เก็บนอก NAS** (เพราะ NAS = host แล้ว ถ้า backup อยู่ NAS ด้วย = พังทีเดียวหมด)
 
