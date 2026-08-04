@@ -1,7 +1,7 @@
 # 📍 เราอยู่ตรงไหน / ต่อไปทำอะไร
 
 > ไฟล์สถานะ อัปเดตทุกครั้งที่คืบหน้า — เปิดไฟล์นี้ไฟล์เดียวก็รู้ว่าเหลืออะไร
-> อัปเดตล่าสุด: **2026-08-04** — 🔀 **ย้าย Oracle → NAS + ทำ HTTPS เสร็จ** · เว็บ `https://bnct.tail42c76d.ts.net/` (Tailscale Funnel + TLS) · ระบบครบทุกฟังก์ชัน · **เหลืออย่างเดียว: ตั้ง backup ของ NAS (เก็บนอก NAS)**
+> อัปเดตล่าสุด: **2026-08-04** — 🔀 **ย้าย Oracle → NAS + ทำ HTTPS เสร็จ** · เว็บ `https://submit.tail42c76d.ts.net/` (Tailscale Funnel + TLS) · ระบบครบทุกฟังก์ชัน · **เหลืออย่างเดียว: ตั้ง backup ของ NAS (เก็บนอก NAS)**
 
 ---
 
@@ -9,8 +9,8 @@
 
 | | |
 |---|---|
-| เว็บ | **https://bnct.tail42c76d.ts.net/** (HTTPS ผ่าน Tailscale Funnel) · ภายใน `http://202.28.43.149:8091/` |
-| Admin UI | https://bnct.tail42c76d.ts.net/_/ (superuser `ts.khumwong@gmail.com` — รหัสใหม่ใน Google Password Manager) |
+| เว็บ | **https://submit.tail42c76d.ts.net/** (HTTPS ผ่าน Tailscale Funnel) · ภายใน `http://202.28.43.149:8091/` |
+| Admin UI | https://submit.tail42c76d.ts.net/_/ (superuser `ts.khumwong@gmail.com` — รหัสใหม่ใน Google Password Manager) |
 | repo | https://github.com/sut-physics/sut-physics-submit (private) |
 | **host** | **NAS Docker** · Container Manager project `submit-project` · `/volume2/submit-project/` · image `muchobien/pocketbase:0.25.2` · host port 8091 |
 | deploy | ⚠️ `./deploy.sh` เดิมยิงขึ้น Oracle **ใช้ไม่ได้แล้ว** · ตอนนี้อัปด้วยมือ: File Station วางไฟล์ + Container Manager rebuild (ยังไม่มี auto-deploy) · บันเดิลพร้อมอัปที่ `~/nas-bundle.zip` |
@@ -27,7 +27,10 @@
 - ทดสอบ end-to-end ผ่าน: ส่งงาน/ตอบกลับ/เปลี่ยนสถานะ/realtime/อนุมัติสมาชิก ครบ
 - (ไฟล์ที่ใช้ deploy: `deploy/docker-compose.fallback.yml` + `deploy/FALLBACK-NAS.md` — เดิมทำไว้เป็น "fallback" ตอนนี้กลายเป็นวิธี deploy จริง · บันเดิลอัป `~/nas-bundle.zip`)
 
-**✅ HTTPS (Tailscale Funnel) — เสร็จแล้ว 4 ส.ค.**: `https://bnct.tail42c76d.ts.net/` (TLS Let's Encrypt อัตโนมัติ, HTTP/2) · node = `bnct` (ตัว NAS เอง), funnel proxy → `127.0.0.1:8091`
+**✅ HTTPS (Tailscale Funnel) — เสร็จแล้ว 4 ส.ค.**: `https://submit.tail42c76d.ts.net/` (TLS Let's Encrypt อัตโนมัติ, HTTP/2) · Tailscale node **เปลี่ยนชื่อ `bnct` → `submit`** แล้ว, funnel proxy → `127.0.0.1:8091`
+> ⚠️ **port ปิด public แล้ว**: compose ผูก `127.0.0.1:8091:8090` (เดิม `8091:8090`) → `http://202.28.43.149:8091` เข้าจากนอกไม่ได้ เหลือทางเข้าเดียว = funnel HTTPS · backup compose เดิมไว้ที่ `docker-compose.yml.bak` บน NAS
+> ⚠️ **node ชื่อ `submit` แล้ว** — ถ้าอนาคตจะเปิด service อื่นผ่าน funnel บน NAS เดียวกัน **อย่าใช้ node นี้** (จะกลายเป็น submit.../ ด้วย) → ทำ **Tailscale sidecar** แยก node ต่อโปรเจกต์ (ดู README ในบันเดิล/คุยกันใหม่)
+> - rename node แล้ว funnel ยังชี้ชื่อเก่า → ต้อง `tailscale cert <newname>` + `tailscale funnel --bg 8091` ซ้ำ ถึงจะย้าย URL
 > 🐞 **บทเรียนตอนตั้ง Funnel (ปวดหัวมาก)**:
 > - **SSH ของ NAS อยู่ port `1122` ไม่ใช่ 22** · user `santa` · รหัส = รหัส DSM (`sudo` ได้)
 > - Tailscale package: **daemon (`tailscaled`) หลุดไปสถานะ `NeedsLogin` / `WantRunning=false`** (node ถูก logout) → funnel/status เลย hang · แก้: `synopkg restart Tailscale` (full path `/usr/syno/bin/synopkg`) แล้ว `tailscale up --authkey=<key>`
