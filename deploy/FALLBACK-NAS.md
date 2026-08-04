@@ -52,11 +52,9 @@ cd /home/santa/Workspace/sut-physics-submit
 > **`pb_hooks` สำคัญมาก** — ถ้าไม่วาง ระบบยังเปิดได้ แต่ **ด่านอนุมัติสมาชิก / กัน self-promote /
 > ระบบลืมรหัสผ่าน หายเงียบๆ ไม่มี error เตือน** (บทเรียนเดียวกับตอนลืม scp hooks บน VM)
 
-**เรื่องสิทธิ์ไฟล์**: compose รันเป็น `user: "1000:1000"` — โฟลเดอร์ `pb_data` ต้องให้ uid 1000
-อ่าน/เขียนได้ ถ้า container เขียน db ไม่ได้ (log ขึ้น permission denied) สั่งบน NAS:
-```bash
-sudo chown -R 1000:1000 /volume2/coe-submit/pb_data
-```
+**เรื่องสิทธิ์ไฟล์**: compose **ไม่ตั้ง `user:`** (รันเป็น root) → เขียนโฟลเดอร์ที่ mount ได้เลย
+ไม่ต้อง chown · ถ้าเผลอตั้ง `user: "1000:1000"` แล้วเจอ `mkdir /pb_data: permission denied` วน crash
+= โฟลเดอร์ที่ extract มาใหม่ไม่ให้ uid 1000 เขียน → เอา `user:` ออก (ยืนยันจริงบน Synology 4 ส.ค.)
 
 ### 3. สตาร์ท container
 บน NAS (ผ่าน SSH หรือ Container Manager → import compose):
@@ -75,9 +73,9 @@ docker logs -f submit-fallback     # ดูว่าขึ้นปกติ ไ
     -H 'Content-Type: application/json' -d '{"username":"__nope__"}'
   # ต้องได้ response จาก custom route (ไม่ใช่ 404) = pb_hooks โหลดอยู่
   ```
-  ถ้าได้ **404** = hooks ไม่ถูกโหลด → เช็คว่า `./pb_hooks` mount เข้า `/pb/pb_hooks` จริงไหม
+  ถ้าได้ **404** = hooks ไม่ถูกโหลด → เช็คว่า `./pb_hooks` mount เข้า `/pb_hooks` จริงไหม
   ถ้ายังไม่ติด เพิ่ม flag ชัดๆ ใน compose ที่ key `command:`
-  `["serve","--http=0.0.0.0:8090","--dir=/pb/pb_data","--publicDir=/pb/pb_public","--hooksDir=/pb/pb_hooks"]`
+  `["serve","--http=0.0.0.0:8090","--dir=/pb_data","--publicDir=/pb_public","--hooksDir=/pb_hooks"]`
 
 ### 5. URL — เลือก 1 ใน 2
 

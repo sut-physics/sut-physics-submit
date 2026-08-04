@@ -1,7 +1,7 @@
 # 📍 เราอยู่ตรงไหน / ต่อไปทำอะไร
 
 > ไฟล์สถานะ อัปเดตทุกครั้งที่คืบหน้า — เปิดไฟล์นี้ไฟล์เดียวก็รู้ว่าเหลืออะไร
-> อัปเดตล่าสุด: **2026-08-03** — เช็คระบบก่อนเปลี่ยน session: ทุกอย่างเขียว · **backup อัตโนมัติทำงานถูกต้องมา 10 วัน (snapshot ตี 3 + NAS ตี 4 ทุกคืน)** · UI เทสต์+แก้ 6 จุดเสร็จตั้งแต่ 24 ก.ค. (ver `5836e81c`)
+> อัปเดตล่าสุด: **2026-08-04** — 🔀 **ย้าย host จาก Oracle → NAS แล้ว** (Oracle Free capacity ล่ม 16 ชม.+ → terminate ทิ้ง) · ระบบรันบน NAS Docker ครบทุกฟังก์ชัน ทดสอบผ่าน · **เหลือ: HTTPS(Funnel) + backup ของ NAS**
 
 ---
 
@@ -9,48 +9,35 @@
 
 | | |
 |---|---|
-| เว็บ | **https://submit.tail42c76d.ts.net/** |
-| Admin UI | https://submit.tail42c76d.ts.net/_/ (superuser — รหัสอยู่ใน Google Password Manager + `.env`) |
+| เว็บ | **http://202.28.43.149:8091/** ⚠️ ยัง http เปล่า (ยังไม่ได้ทำ HTTPS/Funnel — รหัสวิ่ง cleartext) |
+| Admin UI | http://202.28.43.149:8091/_/ (superuser `ts.khumwong@gmail.com` — รหัสใหม่ใน Google Password Manager) |
 | repo | https://github.com/sut-physics/sut-physics-submit (private) |
-| **deploy** | **`./deploy.sh -m "ข้อความ"`** = commit+push+อัปทุกอย่าง+ตรวจผล · `./deploy.sh --check` = ตรวจเฉยๆ |
-| ค่าจริง/วิธีดูแล | `.env` (ไม่ขึ้น git) · `deploy/OPERATIONS.md` · `deploy/RESTORE.md` |
-| Backup | ตี 3 VM สร้าง snapshot **เข้ารหัส age** → ตี 4 NAS ดึงลง `/volume2/submit-backups/` |
-| กุญแจไข backup | `~/submit-backup-key.txt` + Google Password Manager + **กระดาษ** (3 ที่ ✓) |
-| Monitoring | **UptimeRobot** (ฟรี · บัญชี ts.khumwong@gmail.com) เฝ้า `/api/health` ทุก 5 นาที → เตือนเข้าเมล · [dashboard](https://dashboard.uptimerobot.com/monitors/803582607) |
-| ข้อมูลตอนนี้ | **งาน 0 · ข้อความ 0 · ไฟล์ 0 · คำขอลืมรหัส 0** (ล้างทดสอบ 24 ก.ค.) · **3 บัญชี**: `santa`/`yip` (admin) · `member1` (user) — santa ลบ member2/member3 ทิ้งแล้ว |
+| **host** | **NAS Docker** · Container Manager project `submit-project` · `/volume2/submit-project/` · image `muchobien/pocketbase:0.25.2` · host port 8091 |
+| deploy | ⚠️ `./deploy.sh` เดิมยิงขึ้น Oracle **ใช้ไม่ได้แล้ว** · ตอนนี้อัปด้วยมือ: File Station วางไฟล์ + Container Manager rebuild (ยังไม่มี auto-deploy) · บันเดิลพร้อมอัปที่ `~/nas-bundle.zip` |
+| Backup | 🟡 **ยังไม่มี backup ของ instance บน NAS!** (pipeline เดิม snapshot age backup Oracle ซึ่งลบแล้ว) — ต้องตั้งใหม่ เก็บ**นอก** NAS |
+| Monitoring | ⚠️ UptimeRobot เดิมชี้ URL Oracle ที่ตายแล้ว — ต้องแก้ให้ชี้ NAS หรือปิด |
+| ข้อมูลตอนนี้ | **เริ่มสด** (ไม่ได้กู้ backup เพราะระบบว่าง) · **3 บัญชีสมัครใหม่**: `santa`/`yip` (admin) · `member1` (user) + งานทดสอบ |
 
-### 🔴 ทำก่อน **12 ส.ค. 22:22 (เวลาไทย)** — Oracle สั่ง maintenance reboot
+### 🔀 ย้าย Oracle → NAS แล้ว (4 ส.ค.) — เหลือ 2 อย่าง
 
-Oracle ตรวจพบ hardware ที่ `submit-vm` รันอยู่ **ไม่เสถียร** → ต้อง reboot ย้ายเครื่องไป hardware ตัวใหม่
-(REF **COMPUTE-10B** · เดดไลน์ `2026-08-12T15:22 UTC` = **12 ส.ค. 22:22 เวลาไทย** · กระทบเครื่องเดียวที่มี)
+**ทำไมย้าย**: Oracle Free E2.1.Micro สิงคโปร์ **capacity ล่ม** — instance stopped แล้ว start ไม่ขึ้น `Out of host capacity` นาน 16 ชม.+ (ลอตเตอรี่ที่จะเกิดซ้ำทุก stop/reboot) → เลิกฝืน ย้ายมา NAS ที่เปิดตลอด · **Oracle `submit-vm` terminate ทิ้งแล้ว (ลบ boot volume ด้วย)**
 
-- **ทำเอง (แนะนำ ตอนดึกคนไม่ใช้)**: Console → Compute → Instances → `submit-vm` → ปุ่ม **Reboot**
-  = maintenance reboot migration (Oracle ย้ายเครื่องให้เอง) · **อย่า stop/start**
-- ⚠️ **public IP เป็น EPHEMERAL** (`161.118.215.176`):
-  - **Reboot migration → เก็บ IP เดิม** (SSH ไม่ต้องแก้) ✅
-  - **stop/start → ปล่อย IP = ได้ IP ใหม่** ❌ → ห้าม stop/start
-- เว็บ **ไม่กระทบ** (Funnel ไม่พึ่ง public IP) · ระบบ auto-start หลัง reboot (pocketbase/tailscaled/cron enable ไว้)
-- **หลัง reboot เช็ค 4 จุด**:
-  1. เว็บ https://submit.tail42c76d.ts.net/ ขึ้น
-  2. `ssh -i ~/Downloads/ssh-key-2026-07-22.key ubuntu@161.118.215.176` เข้าได้ (IP เดิม)
-  3. `/api/health` = 200 · `systemctl status pocketbase tailscaled cron` ครบ
-  4. คืนถัดไปเช็ค snapshot ตี 3 ยังยิง + NAS ดึงตี 4 (backup pipeline ไม่สะดุด)
-- ถ้าไม่ทำเอง → Oracle เด้งเองภายใน 24 ชม. หลังเดดไลน์ (คุมเวลาไม่ได้) · ระบบรอดแต่ควรทำเองดีกว่า
-- (ออปชัน priority ต่ำ) แปลง ephemeral IP → reserved กัน IP เปลี่ยนถาวร — แต่เว็บไม่พึ่ง IP อยู่แล้ว ไม่จำเป็น
+**ทำไปแล้ว** ✅:
+- รัน PocketBase บน NAS ผ่าน Container Manager (project `submit-project`, image `muchobien/pocketbase:0.25.2`, port 8091) — **เริ่มสด** import `pb_schema.json` (5 collections) + สมัคร 3 บัญชีใหม่ + superuser
+- ทดสอบ end-to-end ผ่าน: ส่งงาน/ตอบกลับ/เปลี่ยนสถานะ/realtime/อนุมัติสมาชิก ครบ
+- (ไฟล์ที่ใช้ deploy: `deploy/docker-compose.fallback.yml` + `deploy/FALLBACK-NAS.md` — เดิมทำไว้เป็น "fallback" ตอนนี้กลายเป็นวิธี deploy จริง · บันเดิลอัป `~/nas-bundle.zip`)
 
-### 🟢 Oracle Free Trial + แผนสำรอง NAS (3 ส.ค.)
+**🔴 เหลือ ① HTTPS (Tailscale Funnel)** — ตอนนี้ login วิ่งผ่าน **http เปล่าบน public IP = รหัส cleartext** · ต้องลง Tailscale ใน Package Center บน NAS → `tailscale funnel --bg 8091` → ได้ URL+TLS · แล้วไปลบ node Oracle เก่าออกจาก Tailscale admin (login.tailscale.com → Machines)
 
-**Oracle Free Trial ใกล้หมด ~21 ส.ค.** — เช็คแล้ว **ไม่ใช่เรื่องฉุกเฉินอย่างที่กลัว**:
-- VM เป็น **AMD E2.1.Micro = Always-Free-eligible อยู่ในลิมิต** → trial หมดจะ downgrade เป็น Always Free **รันต่อฟรี ไม่ถูกยึด** (ยืนยันจาก [Oracle FAQ](https://www.oracle.com/cloud/free/faq/) + [docs](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm): *"Always Free resources will not be reclaimed"*)
-- ข้อยกเว้น "ลบใน 30 วัน" ใช้กับ **A1 (ARM) ที่เกินลิมิต** เท่านั้น — เราใช้ E2.1.Micro ไม่โดน
-- ความเสี่ยงที่เหลือ = **idle-reclaim ของ x86 micro** (นโยบายแยก) → **PAYG ยกเว้นข้อนี้** · UptimeRobot ping ช่วยได้บ้าง
-- **ควรทำ (santa)**: เปิด Console เช็ค instance ติดป้าย "Always Free eligible" + limits ไม่เกินโควตา · ถ้าหาบัตรที่ผ่านได้ อัป PAYG (฿0) ปิดความเสี่ยง idle · **ไม่ต้องรีบจ่าย VPS ฿245/เดือน**
+**🟡 เหลือ ② Backup ของ NAS** — instance บน NAS **ยังไม่มี backup เลย** · pipeline เดิม (snapshot age + NAS pull ตี 3/ตี 4) backup Oracle ซึ่งลบแล้ว → ต้องตั้งใหม่ **เก็บนอก NAS** (เพราะ NAS = host แล้ว ถ้า backup อยู่ NAS ด้วย = พังทีเดียวหมด)
 
-**แผนสำรอง NAS พร้อมแล้ว** (cold standby — Oracle ล่มค่อยกด, ~20-30 นาที):
-- [`deploy/FALLBACK-NAS.md`](deploy/FALLBACK-NAS.md) — runbook ทีละขั้น: กู้ backup → Docker บน NAS → เช็ค hooks → เปิด URL
-- [`deploy/docker-compose.fallback.yml`](deploy/docker-compose.fallback.yml) — compose สำเร็จรูป (pin PB 0.25.2, mount ครบ 3 โฟลเดอร์)
-- ใช้ Docker แบบเดียวกับ dashboard ที่รันบน NAS อยู่แล้ว (`202.28.43.149:8088`) · URL: IP:port หรือ Tailscale Funnel (สวย+HTTPS)
-- ⚠️ ถ้ารันบน NAS ยาวๆ **ต้องหาที่เก็บ backup ใหม่ที่ไม่ใช่ NAS** (ไม่งั้นตัวจริง+backup อยู่เครื่องเดียว = พังทีเดียวหมด) — runbook เตือนไว้แล้ว
+> 🐞 **บทเรียนจากการย้าย (จดกันลืมตอน setup ใหม่/แก้บั๊ก)**:
+> 1. **อย่า stop instance Oracle Free** — stop แล้ว start มักติด `Out of host capacity` เป็นชม./วัน (Oracle เอา capacity ไปให้คนอื่นทันทีที่ปล่อย) · soft reboot ไม่ย้าย hardware · stop+start ถึงจะ migrate แต่เสี่ยงติด capacity
+> 2. **image `muchobien/pocketbase` mount ที่ path ระดับ root**: `/pb_data` `/pb_public` `/pb_hooks` — **ไม่ใช่ `/pb/...`** · ถ้าผิดจะ `mkdir /pb_data: permission denied` วน crash
+> 3. **อย่าตั้ง `user: "1000:1000"`** ใน compose — โฟลเดอร์ที่ extract ใหม่ไม่ให้ uid 1000 เขียน · ไม่ตั้ง = รันเป็น root เขียนได้
+> 4. **Import collections บน PB Admin UI: เปิด toggle "Merge with the existing collections" ก่อนเสมอ** — ไม่งั้นมันลบ `_superusers`/`_mfas`/... ทิ้ง (เสีย superuser!)
+> 5. **รหัส NAS SSH เดิมใน `sut-physics-nas/.env.deploy` ใช้ไม่ได้แล้ว** (SSH auth ไม่ผ่าน) — เลยทำผ่าน DSM GUI แทน · IP เน็ต dev อาจโดน DSM auto-block จากการลอง SSH (ปลดที่ Control Panel → Security → block list)
+> 6. สร้าง superuser ตัวแรกของ PB ต้องผ่าน CLI ในคอนเทนเนอร์ (`/usr/local/bin/pocketbase superuser upsert EMAIL PASS --dir /pb_data`) หรือ install-link — หน้า `/_/` โชว์แค่ login
 
 ### ⏭️ เช้าวันที่ 24 ก.ค. — ทำอันนี้ก่อน
 
