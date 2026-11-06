@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # ============================================================
-# deploy.sh — สั่งครั้งเดียวจบ: หน้าเว็บ + hooks + schema + สคริปต์ backup + push ขึ้น GitHub
+# deploy.sh — สั่งครั้งเดียวจบ: หน้าเว็บ + hooks + schema + push ขึ้น GitHub  (เป้าหมาย: NAS)
 #
 # ใช้:
-#   ./deploy.sh                      ทำทุกอย่าง (ไม่ push ถ้ายังไม่ได้ commit)
+#   ./deploy.sh                      ทำทุกอย่าง (ไม่ commit ถ้าไม่ใส่ -m)
 #   ./deploy.sh -m "ข้อความ commit"   commit ทุกอย่างที่แก้ + push + deploy
 #   ./deploy.sh frontend             เฉพาะหน้าเว็บ
 #   ./deploy.sh hooks schema         เลือกทำเฉพาะบางอย่าง (คั่นด้วยเว้นวรรค)
-#   ./deploy.sh --check              ไม่ deploy อะไร แค่ตรวจว่าของบนเครื่องตรงกับ repo ไหม
+#   ./deploy.sh --check              ไม่ deploy อะไร แค่ตรวจว่าของบน NAS ตรงกับ repo ไหม
 #
-# ขั้นตอนที่มีให้เลือก: git · frontend · hooks · schema · backup · verify
+# ขั้นตอนที่มีให้เลือก: git · frontend · hooks · schema · verify
 #
-# ค่าทั้งหมดอ่านจาก .env (ดู .env.example) — ไม่มีค่าจริงอยู่ในไฟล์นี้
+# ต่อ NAS ผ่าน ssh alias (ดู NAS_SSH ใน .env) ด้วยกุญแจ — ไม่มีรหัสผ่านในสคริปต์
+# ค่าทั้งหมดอ่านจาก .env (ดู .env.example)
 # ============================================================
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -25,14 +26,12 @@ die()  { echo "  ${C_ERR}✗ $*${C_OFF}" >&2; exit 1; }
 # ---------- อ่าน .env ----------
 [ -f .env ] || die "ไม่พบ .env — ก๊อปจาก .env.example แล้วเติมค่าจริงก่อน"
 set -a; . ./.env; set +a
-: "${VM_HOST:?ไม่มี VM_HOST ใน .env}"
-: "${VM_USER:?ไม่มี VM_USER ใน .env}"
-: "${VM_SSH_KEY:?ไม่มี VM_SSH_KEY ใน .env}"
+: "${NAS_SSH:?ไม่มี NAS_SSH ใน .env (ชื่อ Host ใน ~/.ssh/config)}"
+: "${NAS_DIR:?ไม่มี NAS_DIR ใน .env (เช่น /volume2/submit-project)}"
 : "${PB_URL:?ไม่มี PB_URL ใน .env}"
-[ -f "$VM_SSH_KEY" ] || die "ไม่พบ SSH key ที่ $VM_SSH_KEY"
 
-SSH="ssh -i $VM_SSH_KEY -o BatchMode=yes -o ConnectTimeout=15 $VM_USER@$VM_HOST"
-SCP="scp -i $VM_SSH_KEY -o BatchMode=yes"
+SSH="ssh -o BatchMode=yes -o ConnectTimeout=15 $NAS_SSH"
+RSYNC_SSH="ssh -o BatchMode=yes -o ConnectTimeout=15"
 
 # ---------- แยก argument ----------
 COMMIT_MSG=""; CHECK_ONLY=0; STEPS=()
@@ -44,14 +43,15 @@ while [ $# -gt 0 ]; do
         *)            STEPS+=("$1"); shift ;;
     esac
 done
-[ ${#STEPS[@]} -eq 0 ] && STEPS=(git frontend hooks schema backup verify)
+[ ${#STEPS[@]} -eq 0 ] && STEPS=(git frontend hooks schema verify)
 has() { for s in "${STEPS[@]}"; do [ "$s" = "$1" ] && return 0; done; return 1; }
 
-echo "เป้าหมาย: $VM_USER@$VM_HOST  ($PB_URL)"
+echo "เป้าหมาย: $NAS_SSH:$NAS_DIR  ($PB_URL)"
 echo "จะทำ:     ${STEPS[*]}${COMMIT_MSG:+  · commit: \"$COMMIT_MSG\"}"
-[ $CHECK_ONLY -eq 1 ] && echo "${C_WARN}โหมด --check: ตรวจอย่างเดียว ไม่แก้อะไรบนเครื่อง${C_OFF}"
+[ $CHECK_ONLY -eq 1 ] && echo "${C_WARN}โหมด --check: ตรวจอย่างเดียว ไม่แก้อะไรบน NAS${C_OFF}"
 
-$SSH true 2>/dev/null || die "ต่อ VM ไม่ได้ ($VM_HOST) — เช็คเน็ต/คีย์/เครื่องเปิดอยู่ไหม"
+# ต่อ NAS ไม่ได้ = หยุดก่อนแก้อะไร (ไม่ลองซ้ำ — กัน DSM บล็อก IP)
+$SSH true 2>/dev/null || die "ต่อ NAS ไม่ได้ ($NAS_SSH) — เช็คว่าเน็ตมหาวิทยาลัยใช้ได้ / กุญแจ SSH ยังอยู่ใน authorized_keys / IP ไม่โดน DSM บล็อก"
 
 # ---------- ขยับ ?v= ก่อนทุกอย่าง ----------
 # ต้องทำ **ก่อน** ขั้น git ไม่งั้น commit ไปแล้วค่อยแก้ index.html → เหลือไฟล์ค้างทุกครั้ง
@@ -80,7 +80,7 @@ if has git; then
             git add -A
             git commit -q -m "$COMMIT_MSG
 
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
             ok "commit: $COMMIT_MSG"
         else
             warn "มีไฟล์ที่แก้แล้วยังไม่ commit — ข้ามขั้น git (ใส่ -m \"...\" ถ้าอยากให้ commit ให้)"
@@ -90,7 +90,6 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
     AHEAD=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo 0)
     if [ "$AHEAD" -gt 0 ] && [ $CHECK_ONLY -eq 0 ]; then
         git push -q origin main && ok "push แล้ว ($AHEAD commit)"
-        warn "GitHub Actions จะ deploy หน้าเว็บซ้ำอีกรอบใน ~15 วิ — ผลลัพธ์เหมือนกัน ไม่เสียหาย"
     elif [ "$AHEAD" -gt 0 ]; then
         warn "มี $AHEAD commit ที่ยังไม่ push"
     else
@@ -99,52 +98,52 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 fi
 
 # ============================================================
-# 2) frontend — index.html + css/ + js/ → pb_public/
+# 2) frontend — index.html + css/ + js/ → NAS pb_public/
 # ============================================================
 if has frontend; then
-    step "frontend → pb_public/"
-
-    if [ $CHECK_ONLY -eq 0 ]; then
-        tar -czf /tmp/_fe.tgz index.html css js
-        $SCP /tmp/_fe.tgz "$VM_USER@$VM_HOST:/tmp/_fe.tgz" >/dev/null
-        rm -f /tmp/_fe.tgz
-        # ต้องคืนเจ้าของเป็น deploy:deploy — ไม่งั้น GitHub Actions (ล็อกอินเป็น deploy)
-        # จะเขียนทับไฟล์ที่ root เป็นเจ้าของไม่ได้ในรอบถัดไป
-        $SSH 'set -e
-            rm -rf /tmp/_fe && mkdir -p /tmp/_fe && tar -xzf /tmp/_fe.tgz -C /tmp/_fe
-            [ -f /tmp/_fe/index.html ] || { echo "ไม่มี index.html"; exit 1; }
-            sudo rsync -rlt --delete --chmod=D755,F644 /tmp/_fe/ /opt/pocketbase/pb_public/
-            sudo chown -R deploy:deploy /opt/pocketbase/pb_public
-            rm -rf /tmp/_fe /tmp/_fe.tgz
-            echo "  วางแล้ว $(find /opt/pocketbase/pb_public -type f | wc -l) ไฟล์"'
-        ok "อัปหน้าเว็บแล้ว"
+    step "frontend → NAS pb_public/"
+    # --delete ลบไฟล์แปลกปลอมใน pb_public ด้วย (ทุกอย่างในนั้นถูกเสิร์ฟสู่สาธารณะ)
+    # ไม่ส่ง perms/owner: NAS ใช้ ACL อยู่แล้ว ปล่อยให้เป็นตามโฟลเดอร์ปลายทาง
+    FLAGS="-rlt --omit-dir-times --delete --itemize-changes"
+    [ $CHECK_ONLY -eq 1 ] && FLAGS="$FLAGS --dry-run"
+    OUT=$(rsync $FLAGS --rsync-path=/usr/bin/rsync -e "$RSYNC_SSH" --exclude='.DS_Store' \
+        index.html css js "$NAS_SSH:$NAS_DIR/pb_public/" 2>&1) || die "rsync หน้าเว็บไม่ผ่าน: $OUT"
+    # rsync ซ้อนโฟลเดอร์ต้นทางหลายอัน --delete จะไม่แตะของนอกรายการ → เช็คไฟล์เกินแยกต่างหาก
+    EXTRA=$($SSH "cd $NAS_DIR/pb_public && find . -type f ! -name index.html ! -path './css/*' ! -path './js/*' ! -path './@eaDir/*'") 
+    CHG=$(echo "$OUT" | grep -c '^[<>c]' || true)
+    if [ $CHECK_ONLY -eq 1 ]; then
+        [ "$CHG" -eq 0 ] && ok "หน้าเว็บบน NAS ตรงกับ repo" || warn "หน้าเว็บบน NAS **ไม่ตรง** กับ repo ($CHG ไฟล์ต่างกัน)"
+    else
+        ok "อัปหน้าเว็บแล้ว ($CHG ไฟล์เปลี่ยน)"
+    fi
+    if [ -n "$EXTRA" ]; then
+        warn "มีไฟล์เกินใน pb_public/ ที่ไม่ใช่ของแอป (เสิร์ฟสู่สาธารณะอยู่):"
+        echo "$EXTRA" | sed 's/^/      /'
+        [ $CHECK_ONLY -eq 0 ] && warn "  ลบเองถ้าไม่ต้องการ:  ssh $NAS_SSH 'rm $NAS_DIR/pb_public/<ชื่อไฟล์>'"
     fi
 fi
 
 # ============================================================
-# 3) hooks — pb_hooks/main.pb.js (restart PocketBase เฉพาะตอนไฟล์เปลี่ยน)
+# 3) hooks — pb_hooks/main.pb.js (PocketBase 0.25 รีโหลดเองเมื่อไฟล์เปลี่ยน ไม่ต้อง restart)
 # ============================================================
 if has hooks; then
-    step "pb_hooks → VM"
+    step "pb_hooks → NAS"
     LOCAL_SUM=$(sha256sum pb_hooks/main.pb.js | cut -d' ' -f1)
-    REMOTE_SUM=$($SSH 'sudo sha256sum /opt/pocketbase/pb_hooks/main.pb.js 2>/dev/null | cut -d" " -f1' || echo none)
+    REMOTE_SUM=$($SSH "sha256sum $NAS_DIR/pb_hooks/main.pb.js 2>/dev/null | cut -d' ' -f1" || echo none)
     if [ "$LOCAL_SUM" = "$REMOTE_SUM" ]; then
-        ok "hooks บนเครื่องตรงกับ repo แล้ว (ไม่ต้อง restart)"
+        ok "hooks บน NAS ตรงกับ repo แล้ว"
     elif [ $CHECK_ONLY -eq 1 ]; then
-        warn "hooks บนเครื่อง **ไม่ตรง** กับ repo — ต้อง deploy"
+        warn "hooks บน NAS **ไม่ตรง** กับ repo — ต้อง deploy"
     else
         node --check pb_hooks/main.pb.js 2>/dev/null || die "pb_hooks/main.pb.js syntax ไม่ผ่าน — ยังไม่อัป"
-        $SCP pb_hooks/main.pb.js "$VM_USER@$VM_HOST:/tmp/_hooks.js" >/dev/null
-        $SSH 'sudo cp /tmp/_hooks.js /opt/pocketbase/pb_hooks/main.pb.js \
-            && sudo chown pocketbase:pocketbase /opt/pocketbase/pb_hooks/main.pb.js \
-            && rm -f /tmp/_hooks.js && sudo systemctl restart pocketbase && sleep 2 \
-            && systemctl is-active pocketbase'
-        ok "อัป hooks + restart PocketBase แล้ว"
+        rsync -t --rsync-path=/usr/bin/rsync -e "$RSYNC_SSH" pb_hooks/main.pb.js "$NAS_SSH:$NAS_DIR/pb_hooks/main.pb.js" || die "อัป hooks ไม่ผ่าน"
+        ok "อัป hooks แล้ว — PocketBase รีโหลดเอง (ขั้น verify จะเช็คว่าโหลดจริง)"
+        sleep 3
     fi
 fi
 
 # ============================================================
-# 4) schema — pb_schema.json → PocketBase
+# 4) schema — pb_schema.json → PocketBase (ผ่าน HTTPS ไม่ต้อง SSH)
 # ============================================================
 if has schema; then
     step "schema → PocketBase"
@@ -154,7 +153,7 @@ if has schema; then
         -H 'Content-Type: application/json' \
         -d "{\"identity\":\"$PB_SUPERUSER_EMAIL\",\"password\":\"$PB_SUPERUSER_PASSWORD\"}" \
         | python3 -c 'import sys,json;print(json.load(sys.stdin).get("token",""))')
-    [ -n "$TOKEN" ] || die "login superuser ไม่ผ่าน — เช็ค PB_SUPERUSER_* ใน .env"
+    [ -n "$TOKEN" ] || die "login superuser ไม่ผ่าน — เช็ค PB_SUPERUSER_* ใน .env (ต้องเป็นของ instance บน NAS)"
 
     if [ $CHECK_ONLY -eq 1 ]; then
         curl -s "$PB_URL/api/collections?perPage=100" -H "Authorization: $TOKEN" \
@@ -178,50 +177,7 @@ print("     ขาดหาย   :", ", ".join(sorted(want-live)) or "ไม่�
 fi
 
 # ============================================================
-# 5) backup — สคริปต์ snapshot + กุญแจล็อก age
-# ============================================================
-if has backup; then
-    step "สคริปต์ backup → VM"
-    : "${BACKUP_RECIPIENT:?ไม่มี BACKUP_RECIPIENT ใน .env}"
-    LOCAL_SUM=$(sha256sum scripts/snapshot-local.sh | cut -d' ' -f1)
-    REMOTE_SUM=$($SSH 'sudo sha256sum /opt/pocketbase/scripts/snapshot-local.sh 2>/dev/null | cut -d" " -f1' || echo none)
-    if [ "$LOCAL_SUM" = "$REMOTE_SUM" ] && [ $CHECK_ONLY -eq 0 ]; then
-        ok "snapshot-local.sh ตรงกับ repo แล้ว"
-    elif [ $CHECK_ONLY -eq 1 ]; then
-        [ "$LOCAL_SUM" = "$REMOTE_SUM" ] && ok "snapshot-local.sh ตรงกัน" || warn "snapshot-local.sh **ไม่ตรง** กับ repo"
-    else
-        bash -n scripts/snapshot-local.sh || die "snapshot-local.sh syntax ไม่ผ่าน"
-        $SCP scripts/snapshot-local.sh "$VM_USER@$VM_HOST:/tmp/_snap.sh" >/dev/null
-        $SSH "sudo install -m 755 /tmp/_snap.sh /opt/pocketbase/scripts/snapshot-local.sh && rm -f /tmp/_snap.sh"
-        ok "อัป snapshot-local.sh แล้ว"
-    fi
-    # กุญแจล็อก (public) — ไม่ลับ แต่ต้องตรงกับกุญแจไขที่เก็บไว้ ไม่งั้นกู้ backup ไม่ได้
-    REMOTE_REC=$($SSH 'sudo cat /opt/pocketbase/scripts/backup-recipient.pub 2>/dev/null | tr -d "[:space:]"' || echo "")
-    if [ "$REMOTE_REC" = "$BACKUP_RECIPIENT" ]; then
-        ok "กุญแจล็อก age ตรงกับ .env"
-    elif [ $CHECK_ONLY -eq 1 ]; then
-        warn "กุญแจล็อกบน VM **ไม่ตรง** กับ BACKUP_RECIPIENT ใน .env"
-    else
-        echo "$BACKUP_RECIPIENT" | $SSH 'sudo tee /opt/pocketbase/scripts/backup-recipient.pub >/dev/null && sudo chmod 644 /opt/pocketbase/scripts/backup-recipient.pub'
-        ok "อัปกุญแจล็อก age แล้ว"
-        warn "เปลี่ยนกุญแจล็อกแล้ว → backup เก่ายังต้องใช้กุญแจไข **อันเดิม** ถอด อย่าทิ้ง"
-    fi
-    # deploy-frontend.sh (forced command ของ GitHub Actions)
-    if [ $CHECK_ONLY -eq 0 ]; then
-        LS=$(sha256sum deploy/deploy-frontend.sh | cut -d' ' -f1)
-        RS=$($SSH 'sudo sha256sum /usr/local/bin/deploy-frontend.sh 2>/dev/null | cut -d" " -f1' || echo none)
-        if [ "$LS" != "$RS" ]; then
-            $SCP deploy/deploy-frontend.sh "$VM_USER@$VM_HOST:/tmp/_dfe.sh" >/dev/null
-            $SSH "sudo install -m 755 -o root -g root /tmp/_dfe.sh /usr/local/bin/deploy-frontend.sh && rm -f /tmp/_dfe.sh"
-            ok "อัป deploy-frontend.sh (ตัวที่ GitHub Actions เรียก) แล้ว"
-        else
-            ok "deploy-frontend.sh ตรงกับ repo แล้ว"
-        fi
-    fi
-fi
-
-# ============================================================
-# 6) verify — เช็คว่าของจริงใช้ได้ ไม่ใช่แค่ "คำสั่งไม่ error"
+# 5) verify — เช็คว่าของจริงใช้ได้ ไม่ใช่แค่ "คำสั่งไม่ error"
 # ============================================================
 if has verify; then
     step "ตรวจผล"
@@ -240,25 +196,6 @@ if has verify; then
     LIVEV=$(curl -s --max-time 25 "$PB_URL/" | grep -oE 'variables\.css\?v=[a-z0-9]+' | head -1 | sed 's/.*v=//')
     WANTV=$(cat css/*.css js/*.js | sha256sum | head -c 8)
     [ "$LIVEV" = "$WANTV" ] && ok "?v= บนเว็บตรงกับเนื้อไฟล์ ($LIVEV)" || warn "?v= บนเว็บ=$LIVEV แต่เนื้อไฟล์=$WANTV"
-
-    # กุญแจไข backup — จุดที่เปราะที่สุดของระบบ หายแล้ว backup ทั้งกองใช้ไม่ได้ถาวร
-    if [ -n "${BACKUP_KEY_FILE:-}" ] && [ -f "$BACKUP_KEY_FILE" ]; then
-        if command -v age >/dev/null; then
-            # ลองถอดของจริงจาก VM — รู้ตั้งแต่วันนี้ว่ากุญแจยังใช้ได้ ไม่ใช่ไปรู้ตอนจะกู้
-            TMPK=$(mktemp -d); trap 'rm -rf "$TMPK"' EXIT
-            if rsync -azL -e "ssh -i $VM_SSH_KEY" "$VM_USER@$VM_HOST:/srv/submit-backup/db/latest.tar.gz.age" "$TMPK/" 2>/dev/null \
-               && age -d -i "$BACKUP_KEY_FILE" "$TMPK/latest.tar.gz.age" 2>/dev/null | tar -tzf - >/dev/null 2>&1; then
-                ok "กุญแจไข backup ถอด snapshot ล่าสุดได้จริง"
-            else
-                echo "  ${C_ERR}✗ ถอด backup ล่าสุดด้วยกุญแจใน $BACKUP_KEY_FILE ไม่ได้${C_OFF}"; FAIL=1
-            fi
-            find "$TMPK" -type f -delete 2>/dev/null; rm -rf "$TMPK"; trap - EXIT
-        else
-            ok "มีไฟล์กุญแจไข backup อยู่ ${C_DIM}(ข้ามการทดสอบถอดรหัส — เครื่องนี้ไม่มีคำสั่ง age)${C_OFF}"
-        fi
-    else
-        warn "ไม่พบกุญแจไข backup ที่ ${BACKUP_KEY_FILE:-<ไม่ได้ตั้ง BACKUP_KEY_FILE>} — ถ้าไม่มีสำเนาที่อื่น backup ทั้งหมดกู้ไม่ได้"
-    fi
 
     echo
     [ "${FAIL:-0}" = "1" ] && die "มีบางอย่างไม่ผ่าน — ดูบรรทัดสีแดงด้านบน"
