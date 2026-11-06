@@ -361,7 +361,7 @@
       {
         "hidden": false,
         "id": "file2359244304",
-        "maxSelect": 1,
+        "maxSelect": 5,
         "maxSize": 0,
         "mimeTypes": null,
         "name": "file",
@@ -502,7 +502,7 @@
       {
         "hidden": false,
         "id": "file2359244304",
-        "maxSelect": 1,
+        "maxSelect": 5,
         "maxSize": 0,
         "mimeTypes": null,
         "name": "file",

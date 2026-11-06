@@ -92,7 +92,8 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('newModalBackdrop').addEventListener('click', closeNewModal);
     var newFile = document.getElementById('newFile');
     newFile.addEventListener('change', function () {
-        document.getElementById('newFileLabel').textContent = newFile.files.length ? cleanFileName(newFile.files[0].name) : 'แนบไฟล์ (ไม่บังคับ)';
+        if (!checkFileCount(newFile)) alert('แนบได้สูงสุด ' + MAX_FILES + ' ไฟล์ต่อครั้ง');
+        document.getElementById('newFileLabel').textContent = attachLabel(newFile, 'แนบไฟล์ (ไม่บังคับ · สูงสุด ' + MAX_FILES + ' ไฟล์)');
     });
 
     // เริ่มต้น: เช็ค session ที่ค้างใน localStorage

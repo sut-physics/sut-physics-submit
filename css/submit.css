@@ -208,6 +208,7 @@
 .doc-body { padding: 22px 26px; display: flex; flex-direction: column; gap: 20px; }
 .desc-text { font-size: 16.5px; color: var(--ink); white-space: pre-wrap; line-height: 1.75; }
 
+.file-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .file-chip {
     background: var(--surface); font: inherit; text-align: left; width: fit-content;
     display: inline-flex; align-items: center; gap: 10px;

@@ -205,6 +205,30 @@ function escapeHtml(s) {
         .replace(/"/g, '&quot;');
 }
 
+var MAX_FILES = 5;   // ต้องตรงกับ maxSelect ของ field file ใน pb_schema.json
+
+// field file แบบหลายไฟล์ API คืนเป็น array เสมอ (รวมเรคคอร์ดเก่าที่มีไฟล์เดียว) — กัน string/ว่างไว้ด้วย
+function fileList(v) { return Array.isArray(v) ? v : (v ? [v] : []); }
+
+function filesChipsHtml(rec, v) {
+    return fileList(v).map(function (n) { return fileChipHtml(rec, n); }).join('');
+}
+
+// ข้อความบนปุ่มแนบไฟล์: ไม่เลือก = ข้อความเริ่มต้น, 1 ไฟล์ = ชื่อไฟล์, หลายไฟล์ = "N ไฟล์ · ชื่อแรก …"
+function attachLabel(input, emptyText) {
+    var n = input.files.length;
+    if (!n) return emptyText;
+    if (n === 1) return cleanFileName(input.files[0].name);
+    return n + ' ไฟล์ · ' + cleanFileName(input.files[0].name) + ' …';
+}
+
+// เกินจำนวนที่กำหนด → ล้างที่เลือก (คืน true = ผ่าน)
+function checkFileCount(input) {
+    if (input.files.length <= MAX_FILES) return true;
+    input.value = '';
+    return false;
+}
+
 // ไฟล์แนบเป็น protected — โหลดตรงๆ ด้วย URL ไม่ได้แล้ว ต้องแนบ file token ที่มีอายุสั้น
 // จึงเรนเดอร์เป็นปุ่ม แล้วไปขอ token ตอนกด (ขอตอนเรนเดอร์ไม่ได้ เพราะถ้าเปิดหน้าค้างไว้นาน token จะหมดอายุ)
 function fileChipHtml(rec, rawName) {
@@ -438,9 +462,9 @@ function openDetail(id) {
         topParts += '<div><div class="field-label">รายละเอียด</div>' +
                     '<div class="desc-text">' + escapeHtml(d.description) + '</div></div>';
     }
-    if (d.file) {
+    if (fileList(d.file).length) {
         topParts += '<div><div class="field-label">ไฟล์ที่แนบมา</div>' +
-                    fileChipHtml(d, d.file) + '</div>';
+                    '<div class="file-chips">' + filesChipsHtml(d, d.file) + '</div></div>';
     }
     if (!topParts) topParts = '<div class="doc-empty">ไม่มีรายละเอียด · ไม่มีไฟล์แนบ</div>';
 
@@ -521,7 +545,7 @@ function openDetail(id) {
                         '<label class="attach-btn">' +
                             '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>' +
                             '<span id="replyFileLabel">แนบไฟล์</span>' +
-                            '<input type="file" id="replyFile" hidden>' +
+                            '<input type="file" id="replyFile" multiple hidden>' +
                         '</label>' +
                         '<button class="btn btn-primary" id="replySendBtn" type="button">' + sendLabel + '</button>' +
                     '</div>' +
@@ -544,7 +568,8 @@ function openDetail(id) {
 
     var replyFile = document.getElementById('replyFile');
     replyFile.addEventListener('change', function () {
-        document.getElementById('replyFileLabel').textContent = replyFile.files.length ? cleanFileName(replyFile.files[0].name) : 'แนบไฟล์';
+        if (!checkFileCount(replyFile)) alert('แนบได้สูงสุด ' + MAX_FILES + ' ไฟล์ต่อครั้ง');
+        document.getElementById('replyFileLabel').textContent = attachLabel(replyFile, 'แนบไฟล์');
     });
     document.getElementById('replySendBtn').addEventListener('click', function () { submitReply(d.id, isFixing); });
 
@@ -604,7 +629,7 @@ function loadAndRenderThread(submissionId) {
         }
         threadEl.innerHTML = replies.map(function (t) {
             var name = displayName(t.expand && t.expand.author);
-            var fileHtml = t.file ? fileChipHtml(t, t.file) : '';
+            var fileHtml = '<div class="file-chips">' + filesChipsHtml(t, t.file) + '</div>';
             return '<div class="thread-item">' +
                 '<span class="avatar">' + escapeHtml(initials(name)) + '</span>' +
                 '<div class="thread-bubble">' +
@@ -645,7 +670,7 @@ function openNewModal() {
     document.getElementById('newDescription').value = '';
     document.getElementById('newFile').value = '';
     document.getElementById('newDeadline').value = '';
-    document.getElementById('newFileLabel').textContent = 'แนบไฟล์ (ไม่บังคับ)';
+    document.getElementById('newFileLabel').textContent = 'แนบไฟล์ (ไม่บังคับ · สูงสุด ' + MAX_FILES + ' ไฟล์)';
     document.getElementById('newError').style.display = 'none';
 
     var sel = document.getElementById('newRecipient');
@@ -693,7 +718,7 @@ function submitNew() {
     fd.append('recipient', recipient);
     fd.append('status', 'queue');
     if (deadline) fd.append('deadline', deadline);
-    if (fileInput.files.length) fd.append('file', fileInput.files[0]);
+    for (var i = 0; i < fileInput.files.length; i++) fd.append('file', fileInput.files[i]);
 
     var btn = document.getElementById('newSubmitBtn');
     btn.disabled = true;
@@ -731,7 +756,7 @@ function submitReply(submissionId, alsoResubmit) {
     fd.append('submission', submissionId);
     fd.append('author', currentUser.id);
     fd.append('message', text);
-    if (fileInput.files.length) fd.append('file', fileInput.files[0]);
+    for (var i = 0; i < fileInput.files.length; i++) fd.append('file', fileInput.files[i]);
 
     var btn = document.getElementById('replySendBtn');
     btn.disabled = true;
