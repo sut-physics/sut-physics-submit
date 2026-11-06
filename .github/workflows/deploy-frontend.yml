@@ -11,15 +11,11 @@
 #   VM_SSH_KEY  = private key ของคู่ `gh-deploy` (คนละดอกกับ key ที่คุณใช้ ssh เอง)
 name: Deploy frontend
 
+# ⛔ ปิดใช้งานแล้ว (6 พ.ย. 2026): ระบบย้ายจาก Oracle VM มาอยู่ NAS แล้ว และ VM ถูก terminate ทิ้ง
+#    workflow นี้ยังชี้ VM เดิม จึงไม่มีทางสำเร็จ — ตอนนี้ deploy ด้วย `./deploy.sh` จากเครื่อง dev (rsync ผ่าน ssh ไป NAS)
+#    ถ้าจะเปิดใหม่: แก้ขั้นตอนข้างล่างให้ชี้ NAS ก่อน แล้วคืน trigger `push` ตรงนี้
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'index.html'
-      - 'css/**'
-      - 'js/**'
-      - '.github/workflows/deploy-frontend.yml'
-  workflow_dispatch: {}   # กดรันเองจากหน้า Actions ได้
+  workflow_dispatch: {}   # เหลือแค่กดรันเองจากหน้า Actions (ไม่รันอัตโนมัติตอน push อีก)
 
 concurrency:
   group: deploy-frontend  # กันสอง push ชนกันจนไฟล์ปนกัน
